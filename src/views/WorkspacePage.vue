@@ -1,22 +1,31 @@
 <template>
   <div class="workspace-page">
     <!-- 左侧工作区列表 -->
-    <div class="workspace-sidebar">
-      <WorkspaceList
-          :workspaces="workspaces"
-          :activeWorkspaceId="activeWorkspaceId"
-          @select-workspace="selectWorkspace"
-          @create-workspace="handleCreateWorkspace"
-          @edit-workspace="handleEditWorkspace"
-          @duplicate-workspace="handleDuplicateWorkspace"
-          @export-workspace="handleExportWorkspace"
-          @delete-workspace="handleDeleteWorkspace"
-      />
+    <div
+        class="workspace-resize-sidebar"
+        :style="{ width: sidebarWidth + 'px' }"
+    >
+        <WorkspaceList
+            :workspaces="workspaces"
+            :activeWorkspaceId="activeWorkspaceId"
+            @select-workspace="selectWorkspace"
+            @create-workspace="handleCreateWorkspace"
+            @edit-workspace="handleEditWorkspace"
+            @duplicate-workspace="handleDuplicateWorkspace"
+            @export-workspace="handleExportWorkspace"
+            @delete-workspace="handleDeleteWorkspace"
+        />
+      <!-- 拖拽条（调整左侧宽度） -->
+      <div
+          class="resize-bar"
+          @mousedown="startSidebarResize"
+          @mouseenter="showSidebarResizeCursor"
+          @mouseleave="hideSidebarResizeCursor"
+      ></div>
     </div>
 
     <!-- 主工作区 -->
     <div class="workspace-main">
-      <!-- 文件管理器 -->
       <FileManager
           :files="currentFiles"
           @create-file="handleCreateFile"
@@ -28,7 +37,18 @@
     </div>
 
     <!-- AI助手面板 -->
-    <div class="ai-assistant-panel" v-if="showAIAssistant">
+    <div
+        class="ai-assistant-panel"
+        v-if="showAIAssistant"
+        :style="{ width: assistantWidth + 'px' }"
+    >
+      <!-- 拖拽条（调整右侧宽度） -->
+      <div
+          class="resize-bar right"
+          @mousedown="startAssistantResize"
+          @mouseenter="showAssistantResizeCursor"
+          @mouseleave="hideAssistantResizeCursor"
+      ></div>
       <AIAssistant
           :initialMessages="aiMessages"
           @send-message="handleSendMessage"
@@ -70,7 +90,6 @@
           </el-radio-group>
         </el-form-item>
       </el-form>
-
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="cancelWorkspaceForm">取消</el-button>
@@ -84,13 +103,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, onMounted, watch, onUnmounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import WorkspaceList from '@/components/WorkspaceList.vue'
 import FileManager from '@/components/FileManager.vue'
 import AIAssistant from '@/components/AIAssistant.vue'
-
-// 响应式数据
+import { useResizePanel } from '@/components/useResizePanel'
+// ======= 原有数据与业务方法 =======
 const activeWorkspaceId = ref(null)
 const workspaces = ref([])
 const currentFiles = ref([])
@@ -104,8 +123,8 @@ const workspaceForm = ref({
   type: 'private'
 })
 
-// 初始化数据
 onMounted(() => {
+
   // 初始化工作区数据
   workspaces.value = [
     {
@@ -123,33 +142,27 @@ onMounted(() => {
       type: 'public'
     }
   ]
-
   // 默认选中第一个工作区
   if (workspaces.value.length > 0) {
     selectWorkspace(workspaces.value[0].id)
   }
 })
 
-// 监听工作区变化
 watch(activeWorkspaceId, (newId) => {
   if (newId) {
     loadFilesForWorkspace(newId)
   }
 })
 
-// 方法
 const selectWorkspace = (id) => {
   activeWorkspaceId.value = id
-  // 更新工作区状态
   workspaces.value.forEach(w => {
     w.status = w.id === id ? 'active' : 'idle'
   })
 }
 
 const loadFilesForWorkspace = (workspaceId) => {
-  // 模拟加载不同工作区的文件
   if (workspaceId === 1) {
-    // 私域文件
     currentFiles.value = [
       {
         id: 'doc1',
@@ -251,7 +264,6 @@ const loadFilesForWorkspace = (workspaceId) => {
       }
     ]
   } else if (workspaceId === 2) {
-    // 公域文件
     currentFiles.value = [
       {
         id: 'public-docs',
@@ -284,7 +296,6 @@ const loadFilesForWorkspace = (workspaceId) => {
   }
 }
 
-// 工作区操作处理
 const handleCreateWorkspace = () => {
   editingWorkspace.value = null
   workspaceForm.value = {
@@ -317,7 +328,6 @@ const handleDuplicateWorkspace = (workspace) => {
 }
 
 const handleExportWorkspace = (workspace) => {
-  // 模拟导出工作区
   const data = {
     workspace,
     files: currentFiles.value
@@ -351,11 +361,9 @@ const saveWorkspace = () => {
   }
 
   if (editingWorkspace.value) {
-    // 编辑模式
     Object.assign(editingWorkspace.value, workspaceForm.value)
     ElMessage.success('工作区已更新')
   } else {
-    // 创建模式
     const newWorkspace = {
       id: Date.now(),
       name: workspaceForm.value.name.trim(),
@@ -366,7 +374,6 @@ const saveWorkspace = () => {
     workspaces.value.push(newWorkspace)
     ElMessage.success('工作区已创建')
   }
-
   showCreateDialog.value = false
 }
 
@@ -375,7 +382,6 @@ const cancelWorkspaceForm = () => {
   editingWorkspace.value = null
 }
 
-// 文件操作处理
 const handleCreateFile = (fileName) => {
   const newFile = {
     id: Date.now().toString(),
@@ -383,7 +389,6 @@ const handleCreateFile = (fileName) => {
     type: 'file',
     content: ''
   }
-  // 添加到根目录
   currentFiles.value.push(newFile)
   ElMessage.success('文件创建成功')
 }
@@ -400,7 +405,6 @@ const handleCreateFolder = (folderName) => {
 }
 
 const handleRenameFile = ({ newName, ...file }) => {
-  // 递归查找并重命名文件
   const renameInTree = (items) => {
     for (let item of items) {
       if (item.id === file.id) {
@@ -413,34 +417,30 @@ const handleRenameFile = ({ newName, ...file }) => {
     }
     return false
   }
-
   if (renameInTree(currentFiles.value)) {
     ElMessage.success('重命名成功')
   }
 }
 
 const handleDeleteFile = (file) => {
-  // 递归删除文件
-  const deleteFromTree = (items, parent = null) => {
+  const deleteFromTree = (items) => {
     for (let i = 0; i < items.length; i++) {
       if (items[i].id === file.id) {
         items.splice(i, 1)
         return true
       }
-      if (items[i].children && deleteFromTree(items[i].children, items[i])) {
+      if (items[i].children && deleteFromTree(items[i].children)) {
         return true
       }
     }
     return false
   }
-
   if (deleteFromTree(currentFiles.value)) {
     ElMessage.success('删除成功')
   }
 }
 
 const handleSaveContent = ({ fileId, content }) => {
-  // 递归查找并保存文件内容
   const saveInTree = (items) => {
     for (let item of items) {
       if (item.id === fileId) {
@@ -453,15 +453,12 @@ const handleSaveContent = ({ fileId, content }) => {
     }
     return false
   }
-
   if (saveInTree(currentFiles.value)) {
     ElMessage.success('文件已保存')
   }
 }
 
-// AI助手相关处理
 const handleSendMessage = ({ message, settings, onResponse, onError, onComplete }) => {
-  // 模拟AI响应
   setTimeout(() => {
     const response = `收到您的消息："${message}"。这是一个模拟的AI响应。在实际应用中，这里会调用真实的AI服务。`
     onResponse(response)
@@ -480,29 +477,146 @@ const handleRegenerateResponse = ({ message, settings, onResponse, onError, onCo
 const handleAttachFile = () => {
   ElMessage.info('文件附件功能正在开发中')
 }
+
+// ======= 拖拽宽度调整逻辑 =======
+const sidebarWidth = ref(240)
+const assistantWidth = ref(400)
+
+// 左侧
+const {
+  startResize: startSidebarResize,
+  showResizeCursor: showSidebarResizeCursor,
+  hideResizeCursor: hideSidebarResizeCursor
+} = useResizePanel({
+  widthRef: sidebarWidth,
+  direction: 'horizontal',
+  min: 120,
+  max: 400,
+  reverse: false
+})
+
+// 右侧
+const {
+  startResize: startAssistantResize,
+  showResizeCursor: showAssistantResizeCursor,
+  hideResizeCursor: hideAssistantResizeCursor,
+} = useResizePanel({
+  widthRef: assistantWidth,
+  direction: 'horizontal',
+  min: 240,
+  max: 700,
+  reverse: true   // 右侧拖动需要reverse
+})
+
+const handleMouseMove = (event) => {
+  if (!isResizing.value) return
+  const deltaX = event.clientX - startX.value
+  if (resizingPanel.value === 'sidebar') {
+    let newWidth = initialWidth + deltaX
+    newWidth = Math.max(minSidebarWidth, Math.min(maxSidebarWidth, newWidth))
+    sidebarWidth.value = newWidth
+  } else if (resizingPanel.value === 'assistant') {
+    let newWidth = initialWidth - deltaX
+    newWidth = Math.max(minAssistantWidth, Math.min(maxAssistantWidth, newWidth))
+    assistantWidth.value = newWidth
+  }
+}
+
+const handleMouseUp = () => {
+  if (isResizing.value) {
+    isResizing.value = false
+    resizingPanel.value = ''
+    document.body.style.cursor = ''
+    window.removeEventListener('mousemove', handleMouseMove)
+    window.removeEventListener('mouseup', handleMouseUp)
+  }
+}
+
+const showResizeCursor = () => {
+  if (!isResizing.value) {
+    document.body.style.cursor = 'col-resize'
+  }
+}
+
+const hideResizeCursor = () => {
+  if (!isResizing.value) {
+    document.body.style.cursor = ''
+  }
+}
+
+onUnmounted(() => {
+  window.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('mouseup', handleMouseUp)
+  document.body.style.cursor = ''
+})
 </script>
 
 <style scoped>
 .workspace-page {
   display: flex;
-  height: calc(100vh - 64px);
+  height: 100%;
   background-color: #f5f7fa;
+  overflow: hidden;
 }
 
-.workspace-sidebar {
+.workspace-resize-sidebar {
   flex-shrink: 0;
+  height: 100%;
+  position: relative;
+  background: #f4f5fa;
+  /* 宽度由JS控制 */
+  display: flex;
+  flex-direction: column;
+}
+
+.resize-bar {
+  width: 5px;
+  background: #e4e7ed;
+  cursor: col-resize;
+  transition: background 0.2s;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 10;
+}
+.resize-bar:hover,
+.resize-bar:active {
+  background: #b5bac8;
 }
 
 .workspace-main {
   flex: 1;
   background-color: white;
   overflow: hidden;
+  position: relative;
+  min-width: 0;
 }
 
 .ai-assistant-panel {
-  width: 400px;
-  border-left: 1px solid #e4e7ed;
+  position: relative;
+  height: 100%;
   background-color: white;
+  border-left: 1px solid #e4e7ed;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.resize-bar.right {
+  left: 0;
+  right: auto;
+  background: #e4e7ed;
+  width: 5px;
+  cursor: col-resize;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 10;
+}
+.resize-bar.right:hover,
+.resize-bar.right:active {
+  background: #b5bac8;
 }
 
 .dialog-footer {
@@ -514,7 +628,7 @@ const handleAttachFile = () => {
 /* 响应式设计 */
 @media (max-width: 1200px) {
   .ai-assistant-panel {
-    width: 350px;
+    width: 350px !important;
   }
 }
 
@@ -523,14 +637,25 @@ const handleAttachFile = () => {
     flex-direction: column;
   }
 
-  .workspace-sidebar {
-    width: 100%;
-    height: auto;
+  .workspace-resize-sidebar {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    height: 100%;
+    background: #f4f5fa;
   }
 
   .ai-assistant-panel {
-    width: 100%;
+    width: 100% !important;
     height: 50vh;
+  }
+  .sidebar-content {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    /* 可加padding，根据需要 */
+    background: #f4f5fa;
+    overflow: auto;
   }
 }
 </style>

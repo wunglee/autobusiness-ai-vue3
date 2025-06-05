@@ -71,7 +71,15 @@ const createWorkspace = () => {
 
 <style scoped>
 .workspace-sidebar {
-  width: 200px;
+  flex-shrink: 0;
+  height: 100%;
+  position: relative;
+  background: #f4f5fa;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-list {
   height: 100%;
   background: #fafbfc;
   border-right: 1px solid #e4e7ed;
@@ -124,6 +132,7 @@ const createWorkspace = () => {
 
 .workspace-content {
   display: flex;
+  height: 100%;
   align-items: center;
   width: 100%;
 }

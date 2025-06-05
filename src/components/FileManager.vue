@@ -1,60 +1,79 @@
 <template>
   <div class="file-manager">
     <!-- 文件树面板 -->
-    <div class="file-tree-panel">
-      <div class="tree-header">
-        <h3>文件目录</h3>
-      </div>
+    <div class="file-tree-resize-panel"
+         :style="{ width: fileTreeWidth + 'px' }"
+    >
+      <div class="file-tree-panel">
+        <div class="tree-header">
+          <h3>文件目录</h3>
+        </div>
 
-      <div class="file-tree">
-        <el-tree
-            :data="files"
-            :props="defaultProps"
-            node-key="id"
-            default-expand-all
-            :expand-on-click-node="false"
-            :indent="20"
-            highlight-current
-            @node-click="handleNodeClick"
-        >
-          <template #default="{ node, data }">
-            <span class="custom-tree-node">
-              <span class="node-content">
-                <el-icon class="file-icon" :size="16">
-                  <Folder v-if="data.type === 'folder'" />
-                  <Document v-else />
-                </el-icon>
-                <span class="node-label">{{ data.name }}</span>
-              </span>
-              <span class="node-actions">
-                <el-dropdown trigger="click" @command="handleCommand($event, data)" size="small">
-                  <el-icon class="more-icon" :size="16" @click.stop>
-                    <MoreFilled />
+        <div class="file-tree">
+          <el-tree
+              :data="files"
+              :props="defaultProps"
+              node-key="id"
+              default-expand-all
+              :expand-on-click-node="false"
+              :indent="20"
+              highlight-current
+              @node-click="handleNodeClick"
+          >
+            <template #default="{ node, data }">
+              <span class="custom-tree-node">
+                <span class="node-content">
+                  <el-icon class="file-icon" :size="16">
+                    <Folder v-if="data.type === 'folder'" />
+                    <Document v-else />
                   </el-icon>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item :command="'rename'">
-                        <el-icon><Edit /></el-icon>
-                        <span>重命名</span>
-                      </el-dropdown-item>
-                      <el-dropdown-item :command="'delete'" divided>
-                        <el-icon><Delete /></el-icon>
-                        <span>删除</span>
-                      </el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
+                  <span class="node-label">{{ data.name }}</span>
+                </span>
+                <span class="node-actions">
+                  <el-dropdown trigger="click" @command="handleCommand($event, data)" size="small">
+                    <el-icon class="more-icon" :size="16" @click.stop>
+                      <MoreFilled />
+                    </el-icon>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item :command="'rename'">
+                          <el-icon><Edit /></el-icon>
+                          <span>重命名</span>
+                        </el-dropdown-item>
+                        <el-dropdown-item :command="'delete'" divided>
+                          <el-icon><Delete /></el-icon>
+                          <span>删除</span>
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </span>
               </span>
-            </span>
-          </template>
-        </el-tree>
-      </div>
+            </template>
+          </el-tree>
+        </div>
 
-      <div class="tree-footer">
-        <el-button size="small" :icon="FolderAdd" @click="createFolder">新增文件夹</el-button>
+
+        <div class="tree-footer">
+          <el-button size="small" :icon="FolderAdd" @click="createFolder">新增文件夹</el-button>
+          <el-button size="small" :icon="Upload" @click="uploadFile">上传文件</el-button>
+          <el-button size="small" :icon="Download" @click="downloadFiles">下载文件</el-button>
+          <input
+              ref="fileInput"
+              type="file"
+              style="display: none"
+              multiple
+              @change="handleFileUpload"
+          />
+        </div>
       </div>
+      <div
+          class="resize-bar"
+          @mousedown="startTreeBarResize"
+          @mouseenter="showTreeBarResizeCursor"
+          @mouseleave="hideTreeBarResizeCursor"
+      ></div>
     </div>
-
     <!-- 编辑器面板 -->
     <div class="editor-panel">
       <div class="editor-tabs" v-if="openedFiles.length > 0">
@@ -106,6 +125,20 @@ import {
   Delete,
   Close
 } from '@element-plus/icons-vue'
+import {useResizePanel} from "@/components/useResizePanel";
+const fileTreeWidth = ref(240)
+// 左侧
+const {
+  startResize: startTreeBarResize,
+  showResizeCursor: showTreeBarResizeCursor,
+  hideResizeCursor: hideTreeBarResizeCursor
+} = useResizePanel({
+  widthRef: fileTreeWidth,
+  direction: 'horizontal',
+  min: 120,
+  max: 400,
+  reverse: false
+})
 
 // Props
 const props = defineProps({
@@ -258,10 +291,20 @@ const handleContentChange = () => {
   display: flex;
   height: 100%;
 }
-
+.file-tree-resize-panel {
+  flex-shrink: 0;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: #f4f5fa;
+  /* 宽度由JS控制 */
+  display: flex;
+  flex-direction: column;
+}
 .file-tree-panel {
-  width: 300px;
   border-right: 1px solid #e4e7ed;
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   background-color: #fafbfc;
@@ -495,5 +538,21 @@ const handleContentChange = () => {
 
 :deep(.el-dropdown-menu__item .el-icon) {
   font-size: 14px;
+}
+
+.resize-bar {
+  width: 5px;
+  background: #e4e7ed;
+  cursor: col-resize;
+  transition: background 0.2s;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 10;
+}
+.resize-bar:hover,
+.resize-bar:active {
+  background: #b5bac8;
 }
 </style>

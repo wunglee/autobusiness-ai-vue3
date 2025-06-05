@@ -30,7 +30,7 @@
                   <span class="node-label">{{ data.name }}</span>
                 </span>
                 <span class="node-actions">
-                  <el-dropdown trigger="click" @command="handleCommand($event, data)" size="small">
+                  <el-dropdown trigger="click" @command="cmd => cmd === 'rename' ? onRename(data) : onDelete(data)" size="small">
                     <el-icon class="more-icon" :size="16" @click.stop>
                       <MoreFilled />
                     </el-icon>
@@ -125,6 +125,36 @@ import {
   Delete,
   Close
 } from '@element-plus/icons-vue'
+
+import { useNamedEntityActions } from "@/components/useNamedEntityActions";
+
+const { handleCreate, handleRename, handleDelete } = useNamedEntityActions()
+
+// 新建
+const onCreate = async () => {
+  const name = await handleCreate({ title: '新建文件夹', inputPlaceholder: '请输入文件夹名' })
+  if (name) {
+    emit('create-folder', name)
+  }
+}
+
+// 重命名
+const onRename = async (file) => {
+  const newName = await handleRename(file.name, { title: '重命名', label: '请输入新名字' })
+  if (newName && newName !== file.name) {
+    emit('rename-file', { ...file, newName })
+  }
+}
+
+// 删除
+const onDelete = async (file) => {
+  const confirmed = await handleDelete(file.name)
+  if (confirmed) {
+    emit('delete-file', file)
+    // 其它逻辑...
+  }
+}
+
 import {useResizePanel} from "@/components/useResizePanel";
 const fileTreeWidth = ref(240)
 // 左侧
@@ -235,46 +265,7 @@ const handleCommand = async (command, file) => {
   }
 }
 
-const handleRename = async (file) => {
-  try {
-    const { value: newName } = await ElMessageBox.prompt(
-        '请输入新名字',
-        '重命名',
-        {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          inputValue: file.name,
-          inputPattern: /^[\w\-. ]+$/,
-          inputErrorMessage: '名字格式不正确'
-        }
-    )
-    emit('rename-file', { ...file, newName })
-  } catch {
-    // 用户取消
-  }
-}
 
-const handleDelete = async (file) => {
-  try {
-    await ElMessageBox.confirm(
-        `确定要删除 "${file.name}" 吗？此操作不可恢复。`,
-        '确认删除',
-        {
-          type: 'warning',
-          confirmButtonText: '删除',
-          cancelButtonText: '取消'
-        }
-    )
-    emit('delete-file', file)
-
-    // 如果删除的文件正在编辑，关闭它
-    if (openedFiles.value.find(f => f.id === file.id)) {
-      closeFile(file.id)
-    }
-  } catch {
-    // 用户取消
-  }
-}
 
 const handleContentChange = () => {
   if (currentFile.value) {

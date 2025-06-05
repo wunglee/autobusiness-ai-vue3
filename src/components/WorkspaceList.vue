@@ -16,6 +16,26 @@
       >
         <div class="workspace-content">
           <span class="workspace-name">{{ workspace.name }}</span>
+          <el-dropdown trigger="click" @command="cmd => {
+    if (cmd==='edit') editWorkspace(workspace)
+    else if (cmd==='delete') deleteWorkspace(workspace)
+  }" size="small">
+            <el-icon class="more-icon" :size="16" @click.stop>
+              <MoreFilled />
+            </el-icon>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="edit">
+                  <el-icon><Edit /></el-icon>
+                  <span>配置</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="delete" divided>
+                  <el-icon><Delete /></el-icon>
+                  <span>删除</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </div>
     </div>
@@ -34,9 +54,19 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { Plus } from '@element-plus/icons-vue'
+import { useNamedEntityActions } from '@/components/useNamedEntityActions'
+const {handleDelete } = useNamedEntityActions()
+import {MoreFilled, Plus} from '@element-plus/icons-vue'
 
+const deleteWorkspace = async (workspace) => {
+  const confirmed = await handleDelete(workspace.name, {
+    title: '删除空间',
+    message: `确定要删除空间 "${workspace.name}" 吗？`
+  })
+  if (confirmed) {
+    emit('delete-workspace', workspace)
+  }
+}
 // Props
 const props = defineProps({
   workspaces: {
@@ -66,6 +96,10 @@ const selectWorkspace = (id) => {
 
 const createWorkspace = () => {
   emit('create-workspace')
+}
+
+const editWorkspace = (workspace) => {
+  emit('edit-workspace',workspace)
 }
 </script>
 
@@ -149,5 +183,18 @@ const createWorkspace = () => {
 
 .sidebar-footer .el-button {
   width: 100%;
+}
+
+.more-icon {
+  cursor: pointer;
+  color: #909399;
+  padding: 2px;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.more-icon:hover {
+  background-color: #e6f4ff;
+  color: #409eff;
 }
 </style>

@@ -23,67 +23,42 @@ body {
 #app {
   width: 100%;
   height: 100vh;
+  overflow: hidden;
 }
 
-/* 全局样式 */
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
+/* Element Plus 样式调整 */
+.el-tree {
+  --el-tree-node-hover-bg-color: #f5f7fa;
+  --el-tree-text-color: #606266;
+  --el-tree-expand-icon-color: #c0c4cc;
 }
 
-.btn-primary {
-  background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  color: white;
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.el-button {
+  font-weight: 500;
 }
 
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-.card {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-  margin-bottom: 20px;
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
 }
 
-.flex {
-  display: flex;
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
 }
 
-.flex-1 {
-  flex: 1;
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
-.items-center {
-  align-items: center;
-}
-
-.justify-between {
-  justify-content: space-between;
-}
-
-.text-center {
-  text-align: center;
-}
-
-.mb-4 {
-  margin-bottom: 16px;
-}
-
-.mr-3 {
-  margin-right: 12px;
-}
-
-.p-4 {
-  padding: 16px;
+/* 全局过渡效果 */
+* {
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 </style>

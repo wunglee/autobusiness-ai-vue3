@@ -1,238 +1,79 @@
 <template>
   <div class="workspace-page">
-    <!-- 顶部工具栏 -->
-    <div class="workspace-toolbar">
-      <div class="toolbar-left">
-        <div class="workspace-selector">
-          <el-select 
-            v-model="selectedWorkspaceId" 
-            placeholder="选择工作空间"
-            @change="switchWorkspace"
-            size="small"
-          >
-            <el-option
-              v-for="workspace in workspaces"
-              :key="workspace.id"
-              :label="workspace.name"
-              :value="workspace.id"
-            />
-          </el-select>
-          <el-button 
-            type="primary" 
-            size="small" 
-            @click="showCreateDialog = true"
-            style="margin-left: 8px;"
-          >
-            <el-icon><Plus /></el-icon>
-          </el-button>
-        </div>
-      </div>
-      <div class="toolbar-right">
-        <el-button-group size="small">
-          <el-button @click="saveCurrentFile" :disabled="!currentFile">
-            <el-icon><Document /></el-icon>
-            保存
-          </el-button>
-          <el-button @click="createNewFile">
-            <el-icon><DocumentAdd /></el-icon>
-            新建文件
-          </el-button>
-        </el-button-group>
-      </div>
+    <!-- 左侧工作区列表 -->
+    <div class="workspace-sidebar">
+      <WorkspaceList
+          :workspaces="workspaces"
+          :activeWorkspaceId="activeWorkspaceId"
+          @select-workspace="selectWorkspace"
+          @create-workspace="handleCreateWorkspace"
+          @edit-workspace="handleEditWorkspace"
+          @duplicate-workspace="handleDuplicateWorkspace"
+          @export-workspace="handleExportWorkspace"
+          @delete-workspace="handleDeleteWorkspace"
+      />
     </div>
 
     <!-- 主工作区 -->
-    <div class="workspace-main" v-if="selectedWorkspaceId">
-      <!-- 左侧文件目录 -->
-      <div class="sidebar" :class="{ collapsed: sidebarCollapsed }">
-        <div class="sidebar-header">
-          <div class="sidebar-title" v-if="!sidebarCollapsed">
-            <el-icon><Folder /></el-icon>
-            <span>文件浏览器</span>
-          </div>
-          <el-button 
-            type="text" 
-            size="small" 
-            @click="toggleSidebar"
-          >
-            <el-icon><Expand v-if="sidebarCollapsed" /><Fold v-else /></el-icon>
-          </el-button>
-        </div>
-        <div class="file-tree" v-if="!sidebarCollapsed">
-          <div class="tree-actions">
-            <el-button type="text" size="small" @click="createNewFile">
-              <el-icon><DocumentAdd /></el-icon>
-            </el-button>
-            <el-button type="text" size="small" @click="createNewFolder">
-              <el-icon><FolderAdd /></el-icon>
-            </el-button>
-            <el-button type="text" size="small" @click="refreshFileTree">
-              <el-icon><Refresh /></el-icon>
-            </el-button>
-          </div>
-          <el-tree
-            :data="fileTree"
-            :props="treeProps"
-            node-key="id"
-            :expand-on-click-node="false"
-            @node-click="openFile"
-          >
-            <template #default="{ node, data }">
-              <div class="tree-node">
-                <el-icon class="node-icon">
-                  <Folder v-if="data.type === 'folder'" />
-                  <Document v-else />
-                </el-icon>
-                <span class="node-label">{{ node.label }}</span>
-                <div class="node-actions" v-if="!data.isRoot">
-                  <el-dropdown trigger="click" @click.stop>
-                    <el-button type="text" size="small">
-                      <el-icon><MoreFilled /></el-icon>
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item @click="renameFile(data)">
-                          <el-icon><Edit /></el-icon>
-                          重命名
-                        </el-dropdown-item>
-                        <el-dropdown-item @click="deleteFile(data)" divided>
-                          <el-icon><Delete /></el-icon>
-                          删除
-                        </el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
-              </div>
-            </template>
-          </el-tree>
-        </div>
-      </div>
-
-      <!-- 右侧编辑区 -->
-      <div class="editor-area">
-        <!-- 文件标签页 -->
-        <div class="editor-tabs" v-if="openFiles.length > 0">
-          <div 
-            v-for="file in openFiles" 
-            :key="file.id"
-            class="editor-tab"
-            :class="{ active: currentFile?.id === file.id }"
-            @click="switchToFile(file)"
-          >
-            <el-icon class="tab-icon"><Document /></el-icon>
-            <span class="tab-name">{{ file.name }}</span>
-            <el-button 
-              type="text" 
-              size="small" 
-              class="tab-close"
-              @click.stop="closeFile(file)"
-            >
-              <el-icon><Close /></el-icon>
-            </el-button>
-          </div>
-        </div>
-
-        <!-- 编辑器 -->
-        <div class="editor-container" v-if="currentFile">
-          <div class="editor-header">
-            <div class="file-info">
-              <span class="file-path">{{ currentFile.path }}</span>
-            </div>
-            <div class="editor-actions">
-              <el-button type="text" size="small" @click="formatCode">
-                <el-icon><Magic /></el-icon>
-                格式化
-              </el-button>
-            </div>
-          </div>
-          <div class="editor-content">
-            <el-input
-              v-model="currentFile.content"
-              type="textarea"
-              :rows="20"
-              placeholder="在这里编写代码..."
-              @input="markFileAsModified"
-            />
-          </div>
-        </div>
-
-        <!-- 空状态 -->
-        <div v-else class="editor-empty">
-          <div class="empty-content">
-            <el-icon class="empty-icon" size="80"><Document /></el-icon>
-            <h3 class="empty-title">选择文件开始编辑</h3>
-            <p class="empty-description">从左侧文件树选择文件，或创建新文件</p>
-            <el-button type="primary" @click="createNewFile">
-              <el-icon><DocumentAdd /></el-icon>
-              创建新文件
-            </el-button>
-          </div>
-        </div>
-      </div>
+    <div class="workspace-main">
+      <!-- 文件管理器 -->
+      <FileManager
+          :files="currentFiles"
+          @create-file="handleCreateFile"
+          @create-folder="handleCreateFolder"
+          @rename-file="handleRenameFile"
+          @delete-file="handleDeleteFile"
+          @save-content="handleSaveContent"
+      />
     </div>
 
-    <!-- 工作空间选择提示 -->
-    <div v-else class="workspace-selector-prompt">
-      <div class="prompt-content">
-        <el-icon class="prompt-icon" size="80"><FolderOpened /></el-icon>
-        <h3 class="prompt-title">选择工作空间</h3>
-        <p class="prompt-description">请先选择一个工作空间开始编码</p>
-        <div class="workspace-options">
-          <el-select 
-            v-model="selectedWorkspaceId" 
-            placeholder="选择工作空间"
-            @change="switchWorkspace"
-            size="large"
-            style="width: 300px; margin-bottom: 16px;"
-          >
-            <el-option
-              v-for="workspace in workspaces"
-              :key="workspace.id"
-              :label="workspace.name"
-              :value="workspace.id"
-            />
-          </el-select>
-          <br>
-          <el-button type="primary" size="large" @click="showCreateDialog = true">
-            <el-icon><Plus /></el-icon>
-            创建新工作空间
-          </el-button>
-        </div>
-      </div>
+    <!-- AI助手面板 -->
+    <div class="ai-assistant-panel" v-if="showAIAssistant">
+      <AIAssistant
+          :initialMessages="aiMessages"
+          @send-message="handleSendMessage"
+          @clear-history="handleClearHistory"
+          @regenerate-response="handleRegenerateResponse"
+          @attach-file="handleAttachFile"
+      />
     </div>
 
-    <!-- 创建/编辑工作空间对话框 -->
-    <el-dialog 
-      v-model="showCreateDialog" 
-      :title="editingWorkspace ? '编辑工作空间' : '创建工作空间'"
-      width="500px"
-      @close="resetForm"
+    <!-- 创建工作区对话框 -->
+    <el-dialog
+        v-model="showCreateDialog"
+        :title="editingWorkspace ? '编辑工作区' : '创建工作区'"
+        width="500px"
     >
       <el-form :model="workspaceForm" label-width="100px">
-        <el-form-item label="工作空间名称" required>
-          <el-input 
-            v-model="workspaceForm.name" 
-            placeholder="请输入工作空间名称"
-            maxlength="50"
-            show-word-limit
+        <el-form-item label="工作区名称" required>
+          <el-input
+              v-model="workspaceForm.name"
+              placeholder="请输入工作区名称"
+              maxlength="50"
+              show-word-limit
           />
         </el-form-item>
         <el-form-item label="描述">
-          <el-input 
-            v-model="workspaceForm.description" 
-            type="textarea" 
-            placeholder="请输入工作空间描述（可选）"
-            maxlength="200"
-            show-word-limit
-            :rows="3"
+          <el-input
+              v-model="workspaceForm.description"
+              type="textarea"
+              placeholder="请输入工作区描述（可选）"
+              maxlength="200"
+              show-word-limit
+              :rows="3"
           />
         </el-form-item>
+        <el-form-item label="类型">
+          <el-radio-group v-model="workspaceForm.type">
+            <el-radio label="private">私域</el-radio>
+            <el-radio label="public">公域</el-radio>
+          </el-radio-group>
+        </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="resetForm">取消</el-button>
+          <el-button @click="cancelWorkspaceForm">取消</el-button>
           <el-button type="primary" @click="saveWorkspace">
             {{ editingWorkspace ? '保存' : '创建' }}
           </el-button>
@@ -243,325 +84,453 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { 
-  Plus, Edit, Delete, MoreFilled, DocumentAdd, Document, 
-  Folder, FolderAdd, FolderOpened, Expand, Fold, Refresh, 
-  Close, Magic 
-} from '@element-plus/icons-vue'
-
-const router = useRouter()
-
-// 注入全局状态
-const currentWorkspace = inject('currentWorkspace')
-const messages = inject('messages')
+import WorkspaceList from '@/components/WorkspaceList.vue'
+import FileManager from '@/components/FileManager.vue'
+import AIAssistant from '@/components/AIAssistant.vue'
 
 // 响应式数据
+const activeWorkspaceId = ref(null)
 const workspaces = ref([])
-const selectedWorkspaceId = ref(null)
+const currentFiles = ref([])
+const showAIAssistant = ref(false)
+const aiMessages = ref([])
 const showCreateDialog = ref(false)
 const editingWorkspace = ref(null)
 const workspaceForm = ref({
   name: '',
-  description: ''
+  description: '',
+  type: 'private'
 })
 
-// 文件管理相关
-const sidebarCollapsed = ref(false)
-const fileTree = ref([])
-const openFiles = ref([])
-const currentFile = ref(null)
-const treeProps = {
-  children: 'children',
-  label: 'name'
-}
-
-// 生命周期
+// 初始化数据
 onMounted(() => {
-  loadWorkspacesFromStorage()
-  initializeFileTree()
+  // 初始化工作区数据
+  workspaces.value = [
+    {
+      id: 1,
+      name: '私域',
+      description: '私有文件和项目',
+      status: 'active',
+      type: 'private'
+    },
+    {
+      id: 2,
+      name: '公域',
+      description: '公共资源和共享项目',
+      status: 'idle',
+      type: 'public'
+    }
+  ]
+
+  // 默认选中第一个工作区
+  if (workspaces.value.length > 0) {
+    selectWorkspace(workspaces.value[0].id)
+  }
 })
 
-// 从存储加载工作空间
-const loadWorkspacesFromStorage = () => {
-  try {
-    const stored = localStorage.getItem('ai-workspaces')
-    if (stored) {
-      workspaces.value = JSON.parse(stored)
-    }
-  } catch (error) {
-    console.error('加载工作空间失败:', error)
+// 监听工作区变化
+watch(activeWorkspaceId, (newId) => {
+  if (newId) {
+    loadFilesForWorkspace(newId)
   }
-}
+})
 
-// 保存工作空间到存储
-const saveWorkspacesToStorage = () => {
-  try {
-    localStorage.setItem('ai-workspaces', JSON.stringify(workspaces.value))
-  } catch (error) {
-    console.error('保存工作空间失败:', error)
-    ElMessage.error('保存失败')
-  }
-}
-
-// 选择工作空间
-const selectWorkspace = (workspace) => {
-  // 更新当前工作空间
-  currentWorkspace.value = workspace
-  
-  // 更新工作空间状态
+// 方法
+const selectWorkspace = (id) => {
+  activeWorkspaceId.value = id
+  // 更新工作区状态
   workspaces.value.forEach(w => {
-    w.status = w.id === workspace.id ? 'active' : 'idle'
+    w.status = w.id === id ? 'active' : 'idle'
   })
-  saveWorkspacesToStorage()
-  
-  // 加载该工作空间的消息
-  loadMessagesForWorkspace(workspace.id)
-  
-  // 跳转到聊天页面
-  router.push('/chat')
 }
 
-// 加载指定工作空间的消息
-const loadMessagesForWorkspace = (workspaceId) => {
-  try {
-    const stored = localStorage.getItem(`ai-messages-${workspaceId}`)
-    if (stored) {
-      messages.value = JSON.parse(stored)
-    } else {
-      messages.value = []
-    }
-  } catch (error) {
-    console.error('加载消息失败:', error)
-    messages.value = []
+const loadFilesForWorkspace = (workspaceId) => {
+  // 模拟加载不同工作区的文件
+  if (workspaceId === 1) {
+    // 私域文件
+    currentFiles.value = [
+      {
+        id: 'doc1',
+        name: 'Documents',
+        type: 'folder',
+        children: [
+          { id: 'doc1-1', name: 'README.md', type: 'file', content: '# 项目说明\n\n这是一个私有项目的说明文档。' },
+          { id: 'doc1-2', name: 'notes.txt', type: 'file', content: '一些私人笔记内容...' }
+        ]
+      },
+      {
+        id: 'contracts1',
+        name: 'Contracts',
+        type: 'folder',
+        children: [
+          {
+            id: 'legal1',
+            name: 'Legal',
+            type: 'folder',
+            children: [
+              { id: 'nda1', name: 'NDA.pdf', type: 'file', content: '保密协议内容...' },
+              {
+                id: 'agreements1',
+                name: 'Agreements',
+                type: 'folder',
+                children: [
+                  {
+                    id: 'client1',
+                    name: 'Client',
+                    type: 'folder',
+                    children: [
+                      { id: 'service1', name: 'ServiceAgreement.pdf', type: 'file', content: '服务协议内容...' }
+                    ]
+                  },
+                  {
+                    id: 'vendor1',
+                    name: 'Vendor',
+                    type: 'folder',
+                    children: []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: 'reports1',
+        name: 'Reports',
+        type: 'folder',
+        children: []
+      },
+      {
+        id: 'media1',
+        name: 'Media',
+        type: 'folder',
+        children: [
+          {
+            id: 'images1',
+            name: 'Images',
+            type: 'folder',
+            children: [
+              {
+                id: 'vacation1',
+                name: 'SummerVacation',
+                type: 'folder',
+                children: [
+                  { id: 'beach1', name: 'BeachPhoto.jpg', type: 'file', content: '图片文件' },
+                  { id: 'sunset1', name: 'SunsetView.jpg', type: 'file', content: '图片文件' }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'videos1',
+            name: 'Videos',
+            type: 'folder',
+            children: [
+              {
+                id: 'tutorials1',
+                name: 'Tutorials',
+                type: 'folder',
+                children: [
+                  { id: 'onboarding1', name: 'Onboarding.mp4', type: 'file', content: '视频文件' },
+                  { id: 'feature2-1', name: 'Feature2.mp4', type: 'file', content: '视频文件' }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'presentations1',
+            name: 'Presentations',
+            type: 'folder',
+            children: [
+              { id: 'feature2-2', name: 'Feature2.mp4', type: 'file', content: '演示文件' }
+            ]
+          }
+        ]
+      }
+    ]
+  } else if (workspaceId === 2) {
+    // 公域文件
+    currentFiles.value = [
+      {
+        id: 'public-docs',
+        name: 'PublicDocuments',
+        type: 'folder',
+        children: [
+          { id: 'pub1', name: 'Guidelines.md', type: 'file', content: '# 公共指南\n\n这是公共项目的指导文档。' },
+          { id: 'pub2', name: 'API-Documentation.md', type: 'file', content: '# API 文档\n\n## 接口说明\n\n...' }
+        ]
+      },
+      {
+        id: 'shared-resources',
+        name: 'SharedResources',
+        type: 'folder',
+        children: [
+          { id: 'template1', name: 'Template.docx', type: 'file', content: '模板文件内容...' },
+          { id: 'template2', name: 'Presentation.pptx', type: 'file', content: '演示模板...' }
+        ]
+      },
+      {
+        id: 'community',
+        name: 'Community',
+        type: 'folder',
+        children: [
+          { id: 'contrib1', name: 'Contributors.md', type: 'file', content: '# 贡献者列表\n\n...' },
+          { id: 'guide1', name: 'ContributionGuide.md', type: 'file', content: '# 贡献指南\n\n...' }
+        ]
+      }
+    ]
   }
 }
 
-// 保存工作空间
+// 工作区操作处理
+const handleCreateWorkspace = () => {
+  editingWorkspace.value = null
+  workspaceForm.value = {
+    name: '',
+    description: '',
+    type: 'private'
+  }
+  showCreateDialog.value = true
+}
+
+const handleEditWorkspace = (workspace) => {
+  editingWorkspace.value = workspace
+  workspaceForm.value = {
+    name: workspace.name,
+    description: workspace.description,
+    type: workspace.type || 'private'
+  }
+  showCreateDialog.value = true
+}
+
+const handleDuplicateWorkspace = (workspace) => {
+  const newWorkspace = {
+    ...workspace,
+    id: Date.now(),
+    name: `${workspace.name} (副本)`,
+    status: 'idle'
+  }
+  workspaces.value.push(newWorkspace)
+  ElMessage.success('工作区已复制')
+}
+
+const handleExportWorkspace = (workspace) => {
+  // 模拟导出工作区
+  const data = {
+    workspace,
+    files: currentFiles.value
+  }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${workspace.name}-export.json`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  ElMessage.success('工作区已导出')
+}
+
+const handleDeleteWorkspace = (workspace) => {
+  const index = workspaces.value.findIndex(w => w.id === workspace.id)
+  if (index !== -1) {
+    workspaces.value.splice(index, 1)
+    if (activeWorkspaceId.value === workspace.id) {
+      activeWorkspaceId.value = workspaces.value[0]?.id || null
+    }
+  }
+}
+
 const saveWorkspace = () => {
   if (!workspaceForm.value.name.trim()) {
-    ElMessage.warning('请输入工作空间名称')
+    ElMessage.warning('请输入工作区名称')
     return
   }
-  
+
   if (editingWorkspace.value) {
     // 编辑模式
-    editingWorkspace.value.name = workspaceForm.value.name.trim()
-    editingWorkspace.value.description = workspaceForm.value.description.trim()
-    ElMessage.success('工作空间已更新')
+    Object.assign(editingWorkspace.value, workspaceForm.value)
+    ElMessage.success('工作区已更新')
   } else {
     // 创建模式
     const newWorkspace = {
       id: Date.now(),
       name: workspaceForm.value.name.trim(),
       description: workspaceForm.value.description.trim(),
-      status: 'idle',
-      createdAt: new Date()
+      type: workspaceForm.value.type,
+      status: 'idle'
     }
     workspaces.value.push(newWorkspace)
-    ElMessage.success('工作空间已创建')
+    ElMessage.success('工作区已创建')
   }
-  
-  saveWorkspacesToStorage()
-  resetForm()
-}
 
-// 编辑工作空间
-const editWorkspace = (workspace) => {
-  editingWorkspace.value = workspace
-  workspaceForm.value.name = workspace.name
-  workspaceForm.value.description = workspace.description
-  showCreateDialog.value = true
-}
-
-// 删除工作空间
-const deleteWorkspace = async (workspace) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除工作空间 "${workspace.name}" 吗？这将同时删除所有相关消息。`,
-      '确认删除',
-      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
-    )
-    
-    // 删除工作空间
-    const index = workspaces.value.findIndex(w => w.id === workspace.id)
-    if (index !== -1) {
-      workspaces.value.splice(index, 1)
-      saveWorkspacesToStorage()
-    }
-    
-    // 删除相关消息
-    localStorage.removeItem(`ai-messages-${workspace.id}`)
-    
-    // 如果删除的是当前工作空间，清空当前状态
-    if (currentWorkspace.value?.id === workspace.id) {
-      currentWorkspace.value = null
-      messages.value = []
-    }
-    
-    ElMessage.success('工作空间已删除')
-  } catch {
-    // 用户取消
-  }
-}
-
-// 重置表单
-const resetForm = () => {
-  workspaceForm.value.name = ''
-  workspaceForm.value.description = ''
-  editingWorkspace.value = null
   showCreateDialog.value = false
 }
 
-// 格式化时间
-const formatTime = (timestamp) => {
-  return new Date(timestamp).toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+const cancelWorkspaceForm = () => {
+  showCreateDialog.value = false
+  editingWorkspace.value = null
+}
+
+// 文件操作处理
+const handleCreateFile = (fileName) => {
+  const newFile = {
+    id: Date.now().toString(),
+    name: fileName,
+    type: 'file',
+    content: ''
+  }
+  // 添加到根目录
+  currentFiles.value.push(newFile)
+  ElMessage.success('文件创建成功')
+}
+
+const handleCreateFolder = (folderName) => {
+  const newFolder = {
+    id: Date.now().toString(),
+    name: folderName,
+    type: 'folder',
+    children: []
+  }
+  currentFiles.value.push(newFolder)
+  ElMessage.success('文件夹创建成功')
+}
+
+const handleRenameFile = ({ newName, ...file }) => {
+  // 递归查找并重命名文件
+  const renameInTree = (items) => {
+    for (let item of items) {
+      if (item.id === file.id) {
+        item.name = newName
+        return true
+      }
+      if (item.children && renameInTree(item.children)) {
+        return true
+      }
+    }
+    return false
+  }
+
+  if (renameInTree(currentFiles.value)) {
+    ElMessage.success('重命名成功')
+  }
+}
+
+const handleDeleteFile = (file) => {
+  // 递归删除文件
+  const deleteFromTree = (items, parent = null) => {
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].id === file.id) {
+        items.splice(i, 1)
+        return true
+      }
+      if (items[i].children && deleteFromTree(items[i].children, items[i])) {
+        return true
+      }
+    }
+    return false
+  }
+
+  if (deleteFromTree(currentFiles.value)) {
+    ElMessage.success('删除成功')
+  }
+}
+
+const handleSaveContent = ({ fileId, content }) => {
+  // 递归查找并保存文件内容
+  const saveInTree = (items) => {
+    for (let item of items) {
+      if (item.id === fileId) {
+        item.content = content
+        return true
+      }
+      if (item.children && saveInTree(item.children)) {
+        return true
+      }
+    }
+    return false
+  }
+
+  if (saveInTree(currentFiles.value)) {
+    ElMessage.success('文件已保存')
+  }
+}
+
+// AI助手相关处理
+const handleSendMessage = ({ message, settings, onResponse, onError, onComplete }) => {
+  // 模拟AI响应
+  setTimeout(() => {
+    const response = `收到您的消息："${message}"。这是一个模拟的AI响应。在实际应用中，这里会调用真实的AI服务。`
+    onResponse(response)
+    onComplete()
+  }, 1000)
+}
+
+const handleClearHistory = () => {
+  aiMessages.value = []
+}
+
+const handleRegenerateResponse = ({ message, settings, onResponse, onError, onComplete }) => {
+  handleSendMessage({ message, settings, onResponse, onError, onComplete })
+}
+
+const handleAttachFile = () => {
+  ElMessage.info('文件附件功能正在开发中')
 }
 </script>
 
 <style scoped>
 .workspace-page {
-  height: 100vh;
   display: flex;
-  flex-direction: column;
-  background: #f5f5f5;
+  height: calc(100vh - 64px);
+  background-color: #f5f7fa;
 }
 
-.workspace-header {
-  padding: 20px 24px;
-  background: white;
-  border-bottom: 1px solid #e4e7ed;
+.workspace-sidebar {
+  flex-shrink: 0;
 }
 
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.title-section {
+.workspace-main {
   flex: 1;
+  background-color: white;
+  overflow: hidden;
 }
 
-.page-title {
-  margin: 0 0 8px 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.page-subtitle {
-  margin: 0;
-  color: #909399;
-  font-size: 14px;
-}
-
-.workspace-content {
-  flex: 1;
-  padding: 24px;
-  overflow-y: auto;
-}
-
-.workspace-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
-  max-width: 1200px;
-}
-
-.workspace-card {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
-  border: 1px solid #e4e7ed;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.workspace-card:hover {
-  border-color: #409eff;
-  box-shadow: 0 2px 12px rgba(64, 158, 255, 0.1);
-}
-
-.workspace-card.active {
-  border-color: #409eff;
-  background: #f0f8ff;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-
-.workspace-info {
-  flex: 1;
-}
-
-.workspace-name {
-  margin: 0 0 8px 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
-  line-height: 1.4;
-}
-
-.workspace-description {
-  margin: 0;
-  color: #909399;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.workspace-actions {
-  margin-left: 12px;
-}
-
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  color: #909399;
-}
-
-.empty-state {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 400px;
-}
-
-.empty-content {
-  text-align: center;
-}
-
-.empty-icon {
-  color: #c0c4cc;
-  margin-bottom: 16px;
-}
-
-.empty-title {
-  margin: 0 0 8px 0;
-  font-size: 18px;
-  color: #909399;
-}
-
-.empty-description {
-  margin: 0 0 20px 0;
-  color: #c0c4cc;
-  font-size: 14px;
+.ai-assistant-panel {
+  width: 400px;
+  border-left: 1px solid #e4e7ed;
+  background-color: white;
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .ai-assistant-panel {
+    width: 350px;
+  }
+}
+
+@media (max-width: 768px) {
+  .workspace-page {
+    flex-direction: column;
+  }
+
+  .workspace-sidebar {
+    width: 100%;
+    height: auto;
+  }
+
+  .ai-assistant-panel {
+    width: 100%;
+    height: 50vh;
+  }
 }
 </style>

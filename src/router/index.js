@@ -1,4 +1,3 @@
-import { createRouter, createWebHistory } from 'vue-router'
 import WorkspaceLayout from '@/layouts/WorkspaceLayout.vue'
 import HomePage from '@/views/HomePage.vue'
 import WorkspacePage from '@/views/WorkspacePage.vue'

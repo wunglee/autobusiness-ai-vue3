@@ -15,18 +15,18 @@
     <!-- 对话区域 -->
     <div class="chat-container" ref="chatContainer">
       <div class="message-list">
-        <div 
-          v-for="message in messages" 
-          :key="message.id"
-          class="message-item"
-          :class="{ 'user-message': message.role === 'user', 'assistant-message': message.role === 'assistant' }"
+        <div
+            v-for="message in messages"
+            :key="message.id"
+            class="message-item"
+            :class="{ 'user-message': message.role === 'user', 'assistant-message': message.role === 'assistant' }"
         >
           <div class="message-avatar">
             <el-icon v-if="message.role === 'user'">
               <User />
             </el-icon>
             <el-icon v-else>
-              <Robot />
+              <Monitor />
             </el-icon>
           </div>
           <div class="message-content">
@@ -47,11 +47,11 @@
             </div>
           </div>
         </div>
-        
+
         <!-- 加载中状态 -->
         <div v-if="isLoading" class="message-item assistant-message">
           <div class="message-avatar">
-            <el-icon><Robot /></el-icon>
+            <el-icon><Monitor /></el-icon>
           </div>
           <div class="message-content">
             <div class="loading-dots">
@@ -68,24 +68,24 @@
     <div class="input-container">
       <div class="input-wrapper">
         <el-input
-          v-model="inputMessage"
-          type="textarea"
-          :rows="3"
-          placeholder="请输入您的问题..."
-          @keydown.ctrl.enter="sendMessage"
-          :disabled="isLoading"
+            v-model="inputMessage"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入您的问题..."
+            @keydown.ctrl.enter="sendMessage"
+            :disabled="isLoading"
         />
         <div class="input-actions">
           <el-button size="small" text @click="attachFile">
             <el-icon><Paperclip /></el-icon>
             附件
           </el-button>
-          <el-button 
-            type="primary" 
-            size="small" 
-            @click="sendMessage"
-            :loading="isLoading"
-            :disabled="!inputMessage.trim()"
+          <el-button
+              type="primary"
+              size="small"
+              @click="sendMessage"
+              :loading="isLoading"
+              :disabled="!inputMessage.trim()"
           >
             发送 (Ctrl+Enter)
           </el-button>
@@ -112,11 +112,11 @@
           <div class="setting-help">限制单次回答的最大长度</div>
         </el-form-item>
         <el-form-item label="系统提示">
-          <el-input 
-            v-model="settings.systemPrompt" 
-            type="textarea" 
-            :rows="4"
-            placeholder="定义AI助手的行为和角色..."
+          <el-input
+              v-model="settings.systemPrompt"
+              type="textarea"
+              :rows="4"
+              placeholder="定义AI助手的行为和角色..."
           />
         </el-form-item>
       </el-form>
@@ -134,7 +134,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ChatDotRound,
   User,
-  Robot,
+  Monitor,
   Delete,
   Setting,
   CopyDocument,
@@ -181,22 +181,22 @@ onMounted(() => {
 // 方法
 const sendMessage = async () => {
   if (!inputMessage.value.trim() || isLoading.value) return
-  
+
   const userMessage = {
     id: Date.now(),
     role: 'user',
     content: inputMessage.value.trim(),
     timestamp: new Date()
   }
-  
+
   messages.value.push(userMessage)
   const messageContent = inputMessage.value.trim()
   inputMessage.value = ''
-  
+
   await scrollToBottom()
-  
+
   isLoading.value = true
-  
+
   try {
     emit('send-message', {
       message: messageContent,
@@ -227,13 +227,13 @@ const sendMessage = async () => {
 const clearHistory = async () => {
   try {
     await ElMessageBox.confirm(
-      '确定要清空所有对话历史吗？此操作不可恢复。',
-      '确认清空',
-      {
-        type: 'warning',
-        confirmButtonText: '清空',
-        cancelButtonText: '取消'
-      }
+        '确定要清空所有对话历史吗？此操作不可恢复。',
+        '确认清空',
+        {
+          type: 'warning',
+          confirmButtonText: '清空',
+          cancelButtonText: '取消'
+        }
     )
     messages.value = []
     emit('clear-history')
@@ -249,7 +249,7 @@ const regenerateResponse = (message) => {
   if (messageIndex > 0) {
     const previousUserMessage = messages.value[messageIndex - 1]
     messages.value = messages.value.slice(0, messageIndex)
-    
+
     isLoading.value = true
     emit('regenerate-response', {
       message: previousUserMessage.content,
@@ -321,10 +321,10 @@ const formatTime = (timestamp) => {
 const formatMessage = (content) => {
   // 简单的markdown格式化
   return content
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/`(.*?)`/g, '<code>$1</code>')
-    .replace(/\n/g, '<br>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/`(.*?)`/g, '<code>$1</code>')
+      .replace(/\n/g, '<br>')
 }
 </script>
 
@@ -365,6 +365,7 @@ const formatMessage = (content) => {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+  background-color: #f5f7fa;
 }
 
 .message-list {
@@ -389,8 +390,9 @@ const formatMessage = (content) => {
 }
 
 .assistant-message .message-content {
-  background-color: #f5f7fa;
+  background-color: white;
   color: #303133;
+  border: 1px solid #e4e7ed;
 }
 
 .message-avatar {
@@ -433,6 +435,13 @@ const formatMessage = (content) => {
 .message-text {
   line-height: 1.6;
   word-wrap: break-word;
+}
+
+.message-text code {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', monospace;
 }
 
 .message-actions {
@@ -481,7 +490,7 @@ const formatMessage = (content) => {
 .input-container {
   padding: 16px;
   border-top: 1px solid #e4e7ed;
-  background-color: #fafbfc;
+  background-color: white;
 }
 
 .input-wrapper {
@@ -507,19 +516,19 @@ const formatMessage = (content) => {
   .message-content {
     max-width: 85%;
   }
-  
+
   .assistant-header {
     padding: 12px;
   }
-  
+
   .header-info h3 {
     font-size: 14px;
   }
-  
+
   .input-container {
     padding: 12px;
   }
-  
+
   .input-actions {
     flex-wrap: wrap;
     gap: 8px;

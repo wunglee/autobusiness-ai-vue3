@@ -1,1 +1,5 @@
 /node_modules/
+/.idea/.gitignore
+/.idea/autobusiness-ai-vue3.iml
+/.idea/modules.xml
+/.idea/vcs.xml

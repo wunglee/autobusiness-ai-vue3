@@ -5,16 +5,16 @@
         class="workspace-resize-sidebar"
         :style="{ width: sidebarWidth + 'px' }"
     >
-        <WorkspaceList
-            :workspaces="workspaces"
-            :activeWorkspaceId="activeWorkspaceId"
-            @select-workspace="selectWorkspace"
-            @create-workspace="handleCreateWorkspace"
-            @edit-workspace="handleEditWorkspace"
-            @duplicate-workspace="handleDuplicateWorkspace"
-            @export-workspace="handleExportWorkspace"
-            @delete-workspace="handleDeleteWorkspace"
-        />
+      <WorkspaceList
+          :workspaces="workspaces"
+          :activeWorkspaceId="activeWorkspaceId"
+          @select-workspace="selectWorkspace"
+          @create-workspace="handleCreateWorkspace"
+          @edit-workspace="handleEditWorkspace"
+          @duplicate-workspace="handleDuplicateWorkspace"
+          @export-workspace="handleExportWorkspace"
+          @delete-workspace="handleDeleteWorkspace"
+      />
       <!-- 拖拽条（调整左侧宽度） -->
       <div
           class="resize-bar"
@@ -36,47 +36,88 @@
       />
     </div>
 
-    <!-- AI助手边条+弹窗组合 -->
-    <div class="ai-assistant-bar"
-         v-if="!showAIAssistant"
-         @click="showAIAssistant = true">
-      <span class="ai-bar-text">智能体团队</span>
+    <!-- 智能体团队侧边栏 -->
+    <div
+        class="agent-team-sidebar"
+        v-if="!showAgentTeamChat"
+        @click="handleOpenAgentTeam"
+    >
+      <div class="sidebar-content">
+        <div class="sidebar-title">
+          <el-icon><ChatDotRound /></el-icon>
+          <span>智能体团队</span>
+        </div>
+        <el-tooltip content="展开智能体团队" placement="left">
+          <el-button type="primary" :icon="ArrowLeft" circle size="small" />
+        </el-tooltip>
+      </div>
     </div>
-    <AIAssistant
-        v-if="showAIAssistant"
-        :visible="showAIAssistant"
-        :initialMessages="aiMessages"
-        @close="showAIAssistant = false"
-        @send-message="handleSendMessage"
-        @clear-history="handleClearHistory"
-        @regenerate-response="handleRegenerateResponse"
-        @attach-file="handleAttachFile"
+
+    <!-- 智能体团队群聊面板 -->
+    <AgentTeamChat
+        v-if="showAgentTeamChat"
+        @minimize="handleMinimizeAgentTeam"
+        @close="handleCloseAgentTeam"
     />
+
     <!-- 创建工作区对话框 -->
-    <WorkspaceConfigDialog
+    <el-dialog
         v-model="showCreateDialog"
-        :editing="!!editingWorkspace"
-        :value="editingWorkspace"
-        @confirm="saveWorkspace"
-        @cancel="cancelWorkspaceForm"
-    />
+        :title="editingWorkspace ? '编辑工作区' : '创建工作区'"
+        width="500px"
+    >
+      <el-form :model="workspaceForm" label-width="100px">
+        <el-form-item label="工作区名称" required>
+          <el-input
+              v-model="workspaceForm.name"
+              placeholder="请输入工作区名称"
+              maxlength="50"
+              show-word-limit
+          />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input
+              v-model="workspaceForm.description"
+              type="textarea"
+              placeholder="请输入工作区描述（可选）"
+              maxlength="200"
+              show-word-limit
+              :rows="3"
+          />
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-radio-group v-model="workspaceForm.type">
+            <el-radio label="private">私域</el-radio>
+            <el-radio label="public">公域</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="cancelWorkspaceForm">取消</el-button>
+          <el-button type="primary" @click="saveWorkspace">
+            {{ editingWorkspace ? '保存' : '创建' }}
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch, onUnmounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { ChatDotRound, ArrowLeft } from '@element-plus/icons-vue'
 import WorkspaceList from '@/components/WorkspaceList.vue'
 import FileManager from '@/components/FileManager.vue'
-import AIAssistant from '@/components/AIAssistant.vue'
+import AgentTeamChat from '@/components/AgentTeamChat.vue'
 import { useResizePanel } from '@/components/useResizePanel'
-import WorkspaceConfigDialog from './WorkspaceConfigDialog.vue'
+
 // ======= 原有数据与业务方法 =======
 const activeWorkspaceId = ref(null)
 const workspaces = ref([])
 const currentFiles = ref([])
-const showAIAssistant = ref(false)
-const aiMessages = ref([])
+const showAgentTeamChat = ref(false)
 const showCreateDialog = ref(false)
 const editingWorkspace = ref(null)
 const workspaceForm = ref({
@@ -86,7 +127,6 @@ const workspaceForm = ref({
 })
 
 onMounted(() => {
-
   // 初始化工作区数据
   workspaces.value = [
     {
@@ -420,29 +460,21 @@ const handleSaveContent = ({ fileId, content }) => {
   }
 }
 
-const handleSendMessage = ({ message, settings, onResponse, onError, onComplete }) => {
-  setTimeout(() => {
-    const response = `收到您的消息："${message}"。这是一个模拟的AI响应。在实际应用中，这里会调用真实的AI服务。`
-    onResponse(response)
-    onComplete()
-  }, 1000)
+// 智能体团队相关方法
+const handleOpenAgentTeam = () => {
+  showAgentTeamChat.value = true
 }
 
-const handleClearHistory = () => {
-  aiMessages.value = []
+const handleMinimizeAgentTeam = () => {
+  showAgentTeamChat.value = false
 }
 
-const handleRegenerateResponse = ({ message, settings, onResponse, onError, onComplete }) => {
-  handleSendMessage({ message, settings, onResponse, onError, onComplete })
-}
-
-const handleAttachFile = () => {
-  ElMessage.info('文件附件功能正在开发中')
+const handleCloseAgentTeam = () => {
+  showAgentTeamChat.value = false
 }
 
 // ======= 拖拽宽度调整逻辑 =======
 const sidebarWidth = ref(240)
-const assistantWidth = ref(400)
 
 // 左侧
 const {
@@ -456,50 +488,6 @@ const {
   max: 400,
   reverse: false
 })
-
-// 右侧
-const {
-  startResize: startAssistantResize,
-  showResizeCursor: showAssistantResizeCursor,
-  hideResizeCursor: hideAssistantResizeCursor,
-} = useResizePanel({
-  widthRef: assistantWidth,
-  direction: 'horizontal',
-  min: 240,
-  max: 700,
-  reverse: true   // 右侧拖动需要reverse
-})
-
-const handleMouseMove = (event) => {
-  if (!isResizing.value) return
-  const deltaX = event.clientX - startX.value
-  if (resizingPanel.value === 'sidebar') {
-    let newWidth = initialWidth + deltaX
-    newWidth = Math.max(minSidebarWidth, Math.min(maxSidebarWidth, newWidth))
-    sidebarWidth.value = newWidth
-  } else if (resizingPanel.value === 'assistant') {
-    let newWidth = initialWidth - deltaX
-    newWidth = Math.max(minAssistantWidth, Math.min(maxAssistantWidth, newWidth))
-    assistantWidth.value = newWidth
-  }
-}
-
-const handleMouseUp = () => {
-  if (isResizing.value) {
-    isResizing.value = false
-    resizingPanel.value = ''
-    document.body.style.cursor = ''
-    window.removeEventListener('mousemove', handleMouseMove)
-    window.removeEventListener('mouseup', handleMouseUp)
-  }
-}
-
-
-onUnmounted(() => {
-  window.removeEventListener('mousemove', handleMouseMove)
-  window.removeEventListener('mouseup', handleMouseUp)
-  document.body.style.cursor = ''
-})
 </script>
 
 <style scoped>
@@ -508,6 +496,7 @@ onUnmounted(() => {
   height: 100%;
   background-color: #f5f7fa;
   overflow: hidden;
+  position: relative;
 }
 
 .workspace-resize-sidebar {
@@ -544,65 +533,99 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-.ai-assistant-bar {
+.agent-team-sidebar {
+  width: 48px;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
   position: fixed;
-  top: 80px;
   right: 0;
-  width: 36px;
-  height: 140px;
-  background: #232323;
-  color: #fff;
-  border-radius: 10px 0 0 10px;
+  top: 64px;
+  bottom: 0;
+  z-index: 999;
+}
+
+.agent-team-sidebar:hover {
+  width: 56px;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+}
+
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  color: white;
+}
+
+.sidebar-title {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 1px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 100;
-  font-size: 15px;
-  user-select: none;
-  transition: background 0.2s;
+  gap: 8px;
 }
-.ai-assistant-bar:hover {
-  background: #404040;
+
+.sidebar-title .el-icon {
+  transform: rotate(90deg);
 }
-.ai-bar-text {
-  writing-mode: vertical-rl;
-  text-align: center;
-  letter-spacing: 4px;
-  font-weight: 500;
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 /* 响应式设计 */
-@media (max-width: 1200px) {
-  .ai-assistant-panel {
-    width: 350px !important;
-  }
-}
-
 @media (max-width: 768px) {
   .workspace-page {
     flex-direction: column;
   }
 
   .workspace-resize-sidebar {
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    height: 100%;
-    background: #f4f5fa;
+    width: 100% !important;
+    height: 200px;
+    border-right: none;
+    border-bottom: 1px solid #e4e7ed;
   }
 
-  .ai-assistant-panel {
-    width: 100% !important;
-    height: 50vh;
+  .resize-bar {
+    width: 100%;
+    height: 5px;
+    cursor: row-resize;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    top: auto;
   }
-  .sidebar-content {
-    flex: 1;
-    min-width: 0;
-    height: 100%;
-    /* 可加padding，根据需要 */
-    background: #f4f5fa;
-    overflow: auto;
+
+  .agent-team-sidebar {
+    width: 100%;
+    height: 48px;
+    writing-mode: horizontal-tb;
+    flex-direction: row;
+    justify-content: center;
+    padding: 0 16px;
+    top: auto;
+    bottom: 0;
+  }
+
+  .sidebar-title {
+    writing-mode: horizontal-tb;
+    flex-direction: row;
+  }
+
+  .sidebar-title .el-icon {
+    transform: none;
   }
 }
 </style>

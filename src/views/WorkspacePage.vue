@@ -59,48 +59,14 @@
         @minimize="handleMinimizeAgentTeam"
         @close="handleCloseAgentTeam"
     />
-
     <!-- 创建工作区对话框 -->
-    <el-dialog
+    <WorkspaceConfigDialog
         v-model="showCreateDialog"
-        :title="editingWorkspace ? '编辑工作区' : '创建工作区'"
-        width="500px"
-    >
-      <el-form :model="workspaceForm" label-width="100px">
-        <el-form-item label="工作区名称" required>
-          <el-input
-              v-model="workspaceForm.name"
-              placeholder="请输入工作区名称"
-              maxlength="50"
-              show-word-limit
-          />
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input
-              v-model="workspaceForm.description"
-              type="textarea"
-              placeholder="请输入工作区描述（可选）"
-              maxlength="200"
-              show-word-limit
-              :rows="3"
-          />
-        </el-form-item>
-        <el-form-item label="类型">
-          <el-radio-group v-model="workspaceForm.type">
-            <el-radio label="private">私域</el-radio>
-            <el-radio label="public">公域</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="cancelWorkspaceForm">取消</el-button>
-          <el-button type="primary" @click="saveWorkspace">
-            {{ editingWorkspace ? '保存' : '创建' }}
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
+        :editing="!!editingWorkspace"
+        :value="editingWorkspace"
+        @confirm="saveWorkspace"
+        @cancel="cancelWorkspaceForm"
+    />
   </div>
 </template>
 
@@ -112,7 +78,7 @@ import WorkspaceList from '@/components/WorkspaceList.vue'
 import FileManager from '@/components/FileManager.vue'
 import AgentTeamChat from '@/components/AgentTeamChat.vue'
 import { useResizePanel } from '@/components/useResizePanel'
-
+import WorkspaceConfigDialog from './WorkspaceConfigDialog.vue'
 // ======= 原有数据与业务方法 =======
 const activeWorkspaceId = ref(null)
 const workspaces = ref([])
@@ -127,6 +93,7 @@ const workspaceForm = ref({
 })
 
 onMounted(() => {
+
   // 初始化工作区数据
   workspaces.value = [
     {

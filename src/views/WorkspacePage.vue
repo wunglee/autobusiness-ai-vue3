@@ -36,28 +36,22 @@
       />
     </div>
 
-    <!-- AI助手面板 -->
-    <div
-        class="ai-assistant-panel"
-        v-if="showAIAssistant"
-        :style="{ width: assistantWidth + 'px' }"
-    >
-      <!-- 拖拽条（调整右侧宽度） -->
-      <div
-          class="resize-bar right"
-          @mousedown="startAssistantResize"
-          @mouseenter="showAssistantResizeCursor"
-          @mouseleave="hideAssistantResizeCursor"
-      ></div>
-      <AIAssistant
-          :initialMessages="aiMessages"
-          @send-message="handleSendMessage"
-          @clear-history="handleClearHistory"
-          @regenerate-response="handleRegenerateResponse"
-          @attach-file="handleAttachFile"
-      />
+    <!-- AI助手边条+弹窗组合 -->
+    <div class="ai-assistant-bar"
+         v-if="!showAIAssistant"
+         @click="showAIAssistant = true">
+      <span class="ai-bar-text">智能体团队</span>
     </div>
-
+    <AIAssistant
+        v-if="showAIAssistant"
+        :visible="showAIAssistant"
+        :initialMessages="aiMessages"
+        @close="showAIAssistant = false"
+        @send-message="handleSendMessage"
+        @clear-history="handleClearHistory"
+        @regenerate-response="handleRegenerateResponse"
+        @attach-file="handleAttachFile"
+    />
     <!-- 创建工作区对话框 -->
     <WorkspaceConfigDialog
         v-model="showCreateDialog"
@@ -550,36 +544,32 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-.ai-assistant-panel {
-  position: relative;
-  height: 100%;
-  background-color: white;
-  border-left: 1px solid #e4e7ed;
+.ai-assistant-bar {
+  position: fixed;
+  top: 80px;
+  right: 0;
+  width: 36px;
+  height: 140px;
+  background: #232323;
+  color: #fff;
+  border-radius: 10px 0 0 10px;
   display: flex;
-  flex-direction: column;
-  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  font-size: 15px;
+  user-select: none;
+  transition: background 0.2s;
 }
-
-.resize-bar.right {
-  left: 0;
-  right: auto;
-  background: #e4e7ed;
-  width: 5px;
-  cursor: col-resize;
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  z-index: 10;
+.ai-assistant-bar:hover {
+  background: #404040;
 }
-.resize-bar.right:hover,
-.resize-bar.right:active {
-  background: #b5bac8;
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+.ai-bar-text {
+  writing-mode: vertical-rl;
+  text-align: center;
+  letter-spacing: 4px;
+  font-weight: 500;
 }
 
 /* 响应式设计 */

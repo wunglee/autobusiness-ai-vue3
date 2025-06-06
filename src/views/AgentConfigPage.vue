@@ -1,30 +1,28 @@
 <template>
   <div class="agent-config-page">
     <!-- 左侧：两列可调宽度 -->
-    <div class="agent-config-sider" :style="{ width: siderWidth + 'px' }">
-      <div
-          class="agent-category-list-wrap"
-          :style="{ width: categoryWidth + 'px' }"
-      >
-        <AgentCategoryList
-            :categories="categories"
-            :selected="selectedCategory"
-            @select="handleSelectCategory"
-            @add="handleAddCategory"
-        />
-      </div>
-      <ResizableDivider @drag="onDragCategoryDivider" />
-      <div
-          class="agent-list-wrap"
-          :style="{ width: listWidth + 'px' }"
-      >
-        <AgentList
-            :agents="filteredAgents"
-            :selected="selectedAgent"
-            @select="handleSelectAgent"
-            @add="handleAddAgent"
-        />
-      </div>
+    <div
+        class="agent-category-list-wrap"
+        :style="{ width: categoryWidth + 'px' }"
+    >
+      <AgentCategoryList
+          :categories="categories"
+          :selected="selectedCategory"
+          @select="handleSelectCategory"
+          @add="handleAddCategory"
+      />
+    </div>
+    <ResizableDivider @drag="onDragCategoryDivider" />
+    <div
+        class="agent-list-wrap"
+        :style="{ width: listWidth + 'px' }"
+    >
+      <AgentList
+          :agents="filteredAgents"
+          :selected="selectedAgent"
+          @select="handleSelectAgent"
+          @add="handleAddAgent"
+      />
     </div>
     <!-- 名称/详情之间可拖动分隔线 -->
     <ResizableDivider @drag="onDragSiderDivider" />
@@ -68,10 +66,6 @@ const selectedCategory = ref(categories.value[0]?.id ?? null)
 const selectedAgent = ref(null)
 const currentTab = ref('描述')
 
-const siderWidth = ref(340)
-const minSiderWidth = 220
-const maxSiderWidth = 600
-
 const categoryWidth = ref(140)
 const listWidth = ref(200)
 const minCategoryWidth = 80
@@ -79,16 +73,14 @@ const minListWidth = 80
 
 function onDragCategoryDivider(deltaX) {
   const newCategoryWidth = categoryWidth.value + deltaX
-  const newListWidth = listWidth.value - deltaX
-  if (newCategoryWidth > minCategoryWidth && newListWidth > minListWidth) {
+  if (newCategoryWidth > minCategoryWidth) {
     categoryWidth.value = newCategoryWidth
-    listWidth.value = newListWidth
   }
 }
 function onDragSiderDivider(deltaX) {
-  const newSiderWidth = siderWidth.value + deltaX
-  if (newSiderWidth > minSiderWidth && newSiderWidth < maxSiderWidth) {
-    siderWidth.value = newSiderWidth
+  const newListWidth = listWidth.value + deltaX
+  if (newListWidth > minListWidth) {
+    listWidth.value = newListWidth
   }
 }
 function handleSelectCategory(id) { selectedCategory.value = id }
@@ -115,19 +107,14 @@ function handleCancel() { }
   background: #f0f0f0;
   border-right: 1.5px solid #d4d4d4;
   min-width: 220px;
-  max-width: 600px;
   position: relative;
   z-index: 2;
   height: 100vh;
-  min-width: 0;
   overflow: hidden;
 }
 .agent-category-list-wrap,
 .agent-list-wrap {
   height: 100%;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;

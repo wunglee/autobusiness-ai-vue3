@@ -23,7 +23,8 @@ defineProps(['agents', 'selected'])
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: #fafafa;
+  background: #eee;
+  border-right: 1px solid #bdbdbd;
   min-width: 0;
   overflow: hidden;
 }

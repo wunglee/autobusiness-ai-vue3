@@ -16,9 +16,9 @@
 }
 html, body, #app {
   width: 100%;
-  height: 100%;
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
 }
 body {
   font-family: 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
@@ -26,6 +26,7 @@ body {
 }
 
 #app {
+  height: 100%;
   overflow: hidden;
 }
 

@@ -17,7 +17,7 @@ const routes = [
     component: WorkspaceLayout,
     children: [
       {
-        path: '',
+        path: 'workspace',
         name: 'Workspace',
         component: WorkspacePage
       },

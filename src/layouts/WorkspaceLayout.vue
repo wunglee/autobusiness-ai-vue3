@@ -7,7 +7,7 @@
           <h1>醒客自主智能体</h1>
         </div>
         <nav class="nav-menu">
-          <router-link to="/workspace" class="nav-item" active-class="active">
+          <router-link to="/workspace/workspace" class="nav-item" active-class="active">
             工作空间
           </router-link>
           <router-link to="/workspace/agent" class="nav-item" active-class="active">

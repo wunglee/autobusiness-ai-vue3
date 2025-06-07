@@ -10,6 +10,8 @@
           :selected="selectedCategory"
           @select="handleSelectCategory"
           @add="handleAddCategory"
+          @rename="handleRenameCategory"
+          @delete="handleDeleteCategory"
       />
     </div>
     <ResizableDivider @drag="onDragCategoryDivider" />
@@ -22,6 +24,8 @@
           :selected="selectedAgent"
           @select="handleSelectAgent"
           @add="handleAddAgent"
+          @rename="handleRenameAgent"
+          @delete="handleDeleteAgent"
       />
     </div>
     <!-- 名称/详情之间可拖动分隔线 -->
@@ -36,8 +40,7 @@
           :agent="selectedAgent"
           :tab="currentTab"
           @tabChange="currentTab = $event"
-          @submit="handleSubmit"
-          @cancel="handleCancel"
+          @save="handleSave"
       />
       <div v-else class="agent-config-empty">
         <span>请先选择一个智能体进行配置</span>
@@ -48,6 +51,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { ElMessage } from 'element-plus'
 import AgentCategoryList from '@/views/AgentConfig/AgentCategoryList.vue'
 import AgentList from '@/views/AgentConfig/AgentList.vue'
 import AgentConfigTabs from '@/views/AgentConfig/AgentConfigTabs.vue'
@@ -77,41 +81,115 @@ function onDragCategoryDivider(deltaX) {
     categoryWidth.value = newCategoryWidth
   }
 }
+
 function onDragSiderDivider(deltaX) {
   const newListWidth = listWidth.value + deltaX
   if (newListWidth > minListWidth) {
     listWidth.value = newListWidth
   }
 }
-function handleSelectCategory(id) { selectedCategory.value = id }
-function handleAddCategory() { }
+
+function handleSelectCategory(id) {
+  selectedCategory.value = id
+  selectedAgent.value = null // 切换分类时清空选中的智能体
+}
+
+function handleAddCategory() {
+  const newCategory = {
+    id: Date.now(),
+    name: `新分类${categories.value.length + 1}`
+  }
+  categories.value.push(newCategory)
+  ElMessage.success('分类已创建')
+}
+
+function handleRenameCategory({ newName, ...category }) {
+  const index = categories.value.findIndex(c => c.id === category.id)
+  if (index !== -1) {
+    categories.value[index].name = newName
+    ElMessage.success('分类重命名成功')
+  }
+}
+
+function handleDeleteCategory(category) {
+  const index = categories.value.findIndex(c => c.id === category.id)
+  if (index !== -1) {
+    // 删除分类下的所有智能体
+    agents.value = agents.value.filter(a => a.categoryId !== category.id)
+    categories.value.splice(index, 1)
+
+    // 如果删除的是当前选中的分类，切换到第一个分类
+    if (selectedCategory.value === category.id) {
+      selectedCategory.value = categories.value[0]?.id || null
+      selectedAgent.value = null
+    }
+
+    ElMessage.success('分类已删除')
+  }
+}
+
 const filteredAgents = computed(() =>
     agents.value.filter(a => a.categoryId === selectedCategory.value)
 )
-function handleSelectAgent(agent) { selectedAgent.value = agent }
-function handleAddAgent() { }
-function handleSubmit(data) { }
-function handleCancel() { }
+
+function handleSelectAgent(agent) {
+  selectedAgent.value = agent
+}
+
+function handleAddAgent() {
+  if (!selectedCategory.value) {
+    ElMessage.warning('请先选择一个分类')
+    return
+  }
+
+  const newAgent = {
+    id: Date.now(),
+    name: `新智能体${agents.value.length + 1}`,
+    categoryId: selectedCategory.value
+  }
+  agents.value.push(newAgent)
+  ElMessage.success('智能体已创建')
+}
+
+function handleRenameAgent({ newName, ...agent }) {
+  const index = agents.value.findIndex(a => a.id === agent.id)
+  if (index !== -1) {
+    agents.value[index].name = newName
+    // 如果是当前选中的智能体，也要更新
+    if (selectedAgent.value?.id === agent.id) {
+      selectedAgent.value.name = newName
+    }
+    ElMessage.success('智能体重命名成功')
+  }
+}
+
+function handleDeleteAgent(agent) {
+  const index = agents.value.findIndex(a => a.id === agent.id)
+  if (index !== -1) {
+    agents.value.splice(index, 1)
+
+    // 如果删除的是当前选中的智能体，清空选择
+    if (selectedAgent.value?.id === agent.id) {
+      selectedAgent.value = null
+    }
+
+    ElMessage.success('智能体已删除')
+  }
+}
+
+function handleSave(data) {
+  ElMessage.success('配置已保存')
+}
 </script>
 
 <style scoped>
 .agent-config-page {
   display: flex;
   height: 100%;
-  background: #f7f7f7;
+  background: #f5f7fa;
   overflow: hidden;
 }
-.agent-config-sider {
-  display: flex;
-  flex-direction: row;
-  background: #f0f0f0;
-  border-right: 1.5px solid #d4d4d4;
-  min-width: 220px;
-  position: relative;
-  z-index: 2;
-  height: 100vh;
-  overflow: hidden;
-}
+
 .agent-category-list-wrap,
 .agent-list-wrap {
   height: 100%;
@@ -119,6 +197,7 @@ function handleCancel() { }
   flex-direction: column;
   overflow: hidden;
 }
+
 .agent-config-main {
   flex: 1 1 0;
   min-width: 0;
@@ -127,22 +206,25 @@ function handleCancel() { }
   flex-direction: column;
   background: #fff;
 }
+
 .agent-config-header {
   padding: 32px 0 16px 0;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 500;
-  color: #212121;
+  color: #303133;
   text-align: center;
 }
+
 .agent-config-title {
-  letter-spacing: 2px;
+  letter-spacing: 1px;
 }
+
 .agent-config-empty {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #999;
-  font-size: 20px;
+  color: #909399;
+  font-size: 16px;
 }
 </style>

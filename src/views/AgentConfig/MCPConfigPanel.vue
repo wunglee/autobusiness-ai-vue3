@@ -455,7 +455,6 @@ function deleteSelectedLeft() {
   }
 
   .mcp-table-wrap {
-    max-width: none;
     width: 100%;
     max-width: 500px;
   }

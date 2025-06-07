@@ -48,9 +48,9 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import AgentCategoryList from '@/components/AgentCategoryList.vue'
-import AgentList from '@/components/AgentList.vue'
-import AgentConfigTabs from '@/components/AgentConfigTabs.vue'
+import AgentCategoryList from '@/views/AgentConfig/AgentCategoryList.vue'
+import AgentList from '@/views/AgentConfig/AgentList.vue'
+import AgentConfigTabs from '@/views/AgentConfig/AgentConfigTabs.vue'
 import ResizableDivider from '@/components/ResizableDivider.vue'
 
 const categories = ref([
@@ -97,7 +97,7 @@ function handleCancel() { }
 <style scoped>
 .agent-config-page {
   display: flex;
-  height: 100vh;
+  height: 100%;
   background: #f7f7f7;
   overflow: hidden;
 }

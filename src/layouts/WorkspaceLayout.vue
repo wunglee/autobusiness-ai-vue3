@@ -10,13 +10,16 @@
           <router-link to="/workspace" class="nav-item" active-class="active">
             工作空间
           </router-link>
-          <router-link to="/workspace/agent-config" class="nav-item" active-class="active">
+          <router-link to="/workspace/agent" class="nav-item" active-class="active">
             智能体
           </router-link>
-          <router-link to="/workspace/chat" class="nav-item" active-class="active">
+          <router-link to="/workspace/mcp" class="nav-item" active-class="active">
             MCP
           </router-link>
           <router-link to="/workspace/datasource" class="nav-item" active-class="active">
+            数据源
+          </router-link>
+          <router-link to="/workspace/llm" class="nav-item" active-class="active">
             大模型
           </router-link>
         </nav>

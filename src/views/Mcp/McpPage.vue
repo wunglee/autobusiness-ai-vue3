@@ -1,7 +1,7 @@
 <template>
   <div class="chat-page">
-    <h1>对话界面</h1>
-    <p>对话界面功能正在开发中...</p>
+    <h1>MCP配置界面</h1>
+    <p>MCP配置界面功能正在开发中...</p>
   </div>
 </template>
 

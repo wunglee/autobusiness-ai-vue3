@@ -74,9 +74,9 @@
 import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ChatDotRound, ArrowLeft } from '@element-plus/icons-vue'
-import WorkspaceList from '@/components/WorkspaceList.vue'
-import FileManager from '@/components/FileManager.vue'
-import AgentTeamChat from '@/components/AgentTeamChat.vue'
+import WorkspaceList from '@/views/Workspace/WorkspaceList.vue'
+import FileManager from '@/views/Workspace/FileManager.vue'
+import AgentTeamChat from '@/views/Workspace/AgentTeamChat.vue'
 import { useResizePanel } from '@/components/useResizePanel'
 import WorkspaceConfigDialog from './WorkspaceConfigDialog.vue'
 // ======= 原有数据与业务方法 =======
@@ -468,7 +468,6 @@ const {
 
 .workspace-resize-sidebar {
   flex-shrink: 0;
-  height: 100%;
   position: relative;
   background: #f4f5fa;
   /* 宽度由JS控制 */

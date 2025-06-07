@@ -16,8 +16,8 @@
             </th>
             <th>名称</th>
             <th>描述</th>
-            <th width="60">启用</th>
-            <th width="50">详情</th>
+            <th>启用</th>
+            <th>详情</th>
           </tr>
           </thead>
           <tbody>
@@ -65,11 +65,12 @@
         <el-button
             type="primary"
             :icon="ArrowRight"
+            icon-position="right"
             :disabled="leftSelection.length === 0"
             @click="moveToRight"
             class="transfer-btn"
         >
-          添加到工作区
+          添加
         </el-button>
         <el-button
             type="warning"
@@ -78,13 +79,13 @@
             @click="moveToLeft"
             class="transfer-btn"
         >
-          从工作区移除
+          移除
         </el-button>
       </div>
 
-      <!-- 右侧工作区MCP列表 -->
+      <!-- 右侧MCP列表 -->
       <div class="mcp-table-wrap">
-        <div class="mcp-table-header">工作区MCP工具</div>
+        <div class="mcp-table-header">智能体MCP工具</div>
         <table class="mcp-table">
           <thead>
           <tr>
@@ -97,8 +98,8 @@
             </th>
             <th>名称</th>
             <th>描述</th>
-            <th width="60">启用</th>
-            <th width="50">详情</th>
+            <th>启用</th>
+            <th>详情</th>
           </tr>
           </thead>
           <tbody>
@@ -117,17 +118,8 @@
                   v-if="item.enabled"
                   class="check-icon"
                   color="#67c23a"
-                  @click="toggleEnable(item)"
               >
                 <Check />
-              </el-icon>
-              <el-icon
-                  v-else
-                  class="uncheck-icon"
-                  color="#c0c4cc"
-                  @click="toggleEnable(item)"
-              >
-                <Close />
               </el-icon>
             </td>
             <td>
@@ -141,22 +133,6 @@
           </tr>
           </tbody>
         </table>
-        <div class="table-actions">
-          <el-button
-              size="small"
-              :disabled="rightSelection.length === 0"
-              @click="enableSelected"
-          >
-            启用选中
-          </el-button>
-          <el-button
-              size="small"
-              :disabled="rightSelection.length === 0"
-              @click="disableSelected"
-          >
-            禁用选中
-          </el-button>
-        </div>
       </div>
     </div>
 
@@ -238,13 +214,6 @@ function toggleAllLeft() {
   }
 }
 
-function toggleAllRight() {
-  if (isAllRightSelected.value) {
-    rightSelection.value = []
-  } else {
-    rightSelection.value = rightList.value.map(item => item.id)
-  }
-}
 
 function moveToRight() {
   const selectedItems = leftList.value.filter(item => leftSelection.value.includes(item.id))
@@ -253,7 +222,7 @@ function moveToRight() {
   })
   leftList.value = leftList.value.filter(item => !leftSelection.value.includes(item.id))
   leftSelection.value = []
-  ElMessage.success(`已添加 ${selectedItems.length} 个工具到工作区`)
+  ElMessage.success(`已添加 ${selectedItems.length} 个工具`)
 }
 
 function moveToLeft() {
@@ -263,31 +232,9 @@ function moveToLeft() {
   })
   rightList.value = rightList.value.filter(item => !rightSelection.value.includes(item.id))
   rightSelection.value = []
-  ElMessage.success(`已从工作区移除 ${selectedItems.length} 个工具`)
+  ElMessage.success(`已移除 ${selectedItems.length} 个工具`)
 }
 
-function toggleEnable(item) {
-  item.enabled = !item.enabled
-  ElMessage.success(`${item.name} 已${item.enabled ? '启用' : '禁用'}`)
-}
-
-function enableSelected() {
-  rightList.value.forEach(item => {
-    if (rightSelection.value.includes(item.id)) {
-      item.enabled = true
-    }
-  })
-  ElMessage.success('已启用选中的工具')
-}
-
-function disableSelected() {
-  rightList.value.forEach(item => {
-    if (rightSelection.value.includes(item.id)) {
-      item.enabled = false
-    }
-  })
-  ElMessage.success('已禁用选中的工具')
-}
 
 function showDetail(item) {
   currentMcp.value = item
@@ -334,15 +281,12 @@ function deleteSelectedLeft() {
 }
 
 .mcp-table-wrap {
-  background: #f7f7f7;
   border-radius: 10px;
-  box-shadow: 0 0 6px #ececec;
   min-width: 320px;
   max-width: 400px;
   padding: 16px 8px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
 }
 
 .mcp-table-header {
@@ -355,6 +299,7 @@ function deleteSelectedLeft() {
 
 .mcp-table {
   width: 100%;
+  box-shadow: 0 0 6px #ececec;
   border-collapse: collapse;
   font-size: 12px; /* 表格内容稍小 */
   margin-bottom: 12px;
@@ -382,18 +327,13 @@ function deleteSelectedLeft() {
   cursor: pointer;
 }
 
-.check-icon, .uncheck-icon {
+.check-icon{
   font-size: 16px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .check-icon:hover {
-  transform: scale(1.1);
-}
-
-.uncheck-icon:hover {
-  color: #f56c6c !important;
   transform: scale(1.1);
 }
 

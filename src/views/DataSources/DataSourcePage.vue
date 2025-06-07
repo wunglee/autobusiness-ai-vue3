@@ -28,10 +28,15 @@
                 </div>
                 <div class="ds-status">
                   <el-tag
-                      :type="ds.status === 'connected' ? 'success' : 'danger'"
+                      :type="ds.status === 'tested' ? 'success' : ds.status === 'failed' ? 'danger' : 'info'"
                       size="small"
                   >
-                    {{ ds.status === 'connected' ? '已连接' : '未连接' }}
+                    {{ ds.status === 'tested'
+                      ? '已测试'
+                      : ds.status === 'failed'
+                          ? '测试失败'
+                          : '待测试'
+                    }}
                   </el-tag>
                 </div>
               </div>
@@ -45,10 +50,6 @@
                       <el-dropdown-item command="test">
                         <el-icon><Connection /></el-icon>
                         <span>测试连接</span>
-                      </el-dropdown-item>
-                      <el-dropdown-item command="edit">
-                        <el-icon><Edit /></el-icon>
-                        <span>编辑</span>
                       </el-dropdown-item>
                       <el-dropdown-item command="duplicate">
                         <el-icon><CopyDocument /></el-icon>
@@ -97,11 +98,12 @@
                 <el-input
                     v-model="datasourceForm.name"
                     placeholder="请输入数据源名称"
+                    @input="onFormChange"
                 />
               </el-form-item>
 
               <el-form-item label="数据库类型" required>
-                <el-select v-model="datasourceForm.type" placeholder="请选择数据库类型" style="width: 100%">
+                <el-select v-model="datasourceForm.type" placeholder="请选择数据库类型" style="width: 100%" @change="onFormChange">
                   <el-option label="MySQL" value="mysql" />
                   <el-option label="PostgreSQL" value="postgresql" />
                   <el-option label="SQL Server" value="sqlserver" />
@@ -115,6 +117,7 @@
                 <el-input
                     v-model="datasourceForm.host"
                     placeholder="请输入主机地址，如: localhost"
+                    @input="onFormChange"
                 />
               </el-form-item>
 
@@ -124,6 +127,7 @@
                     :min="1"
                     :max="65535"
                     style="width: 100%"
+                    @change="onFormChange"
                 />
               </el-form-item>
 
@@ -131,6 +135,7 @@
                 <el-input
                     v-model="datasourceForm.database"
                     placeholder="请输入数据库名称"
+                    @input="onFormChange"
                 />
               </el-form-item>
 
@@ -138,6 +143,7 @@
                 <el-input
                     v-model="datasourceForm.username"
                     placeholder="请输入用户名"
+                    @input="onFormChange"
                 />
               </el-form-item>
 
@@ -147,6 +153,7 @@
                     type="password"
                     placeholder="请输入密码"
                     show-password
+                    @input="onFormChange"
                 />
               </el-form-item>
 
@@ -156,6 +163,7 @@
                     type="textarea"
                     :rows="3"
                     placeholder="额外的连接参数，如: charset=utf8&timeout=30"
+                    @input="onFormChange"
                 />
               </el-form-item>
 
@@ -165,6 +173,7 @@
                     type="textarea"
                     :rows="3"
                     placeholder="请输入数据源描述"
+                    @input="onFormChange"
                 />
               </el-form-item>
             </el-form>
@@ -212,7 +221,6 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus,
-  Edit,
   Delete,
   MoreFilled,
   Connection,
@@ -223,7 +231,6 @@ import {
   CopyDocument
 } from '@element-plus/icons-vue'
 
-// 响应式数据
 const datasourceList = ref([])
 const selectedDatasource = ref(null)
 const testing = ref(false)
@@ -240,7 +247,8 @@ const datasourceForm = reactive({
   username: '',
   password: '',
   options: '',
-  description: ''
+  description: '',
+  status: 'untested'
 })
 
 const testResult = reactive({
@@ -249,13 +257,16 @@ const testResult = reactive({
   details: ''
 })
 
-// 初始化数据
+// 1. 初始化数据并自动选中第一个
 onMounted(() => {
   loadDatasourceList()
+  // 数据异步也没关系，这里同步直接选第一个
+  if (datasourceList.value.length > 0) {
+    selectDatasource(datasourceList.value[0])
+  }
 })
 
 const loadDatasourceList = () => {
-  // 模拟数据
   datasourceList.value = [
     {
       id: 1,
@@ -266,7 +277,7 @@ const loadDatasourceList = () => {
       database: 'user_db',
       username: 'root',
       password: '123456',
-      status: 'connected',
+      status: 'tested',
       description: '用户相关数据存储'
     },
     {
@@ -278,7 +289,7 @@ const loadDatasourceList = () => {
       database: 'product_db',
       username: 'admin',
       password: 'admin123',
-      status: 'disconnected',
+      status: 'untested',
       description: '产品信息数据库'
     },
     {
@@ -289,15 +300,20 @@ const loadDatasourceList = () => {
       port: 6379,
       username: '',
       password: 'redis_pass',
-      status: 'connected',
+      status: 'failed',
       description: '缓存数据库'
     }
   ]
 }
 
+// 2. 选中某项，表单同步
 const selectDatasource = (ds) => {
+  // 切换时，如果有“未命名”未保存，自动删掉
+  if (selectedDatasource.value && selectedDatasource.value.name === '未命名') {
+    const idx = datasourceList.value.findIndex(d => d.id === selectedDatasource.value.id)
+    if (idx > -1) datasourceList.value.splice(idx, 1)
+  }
   selectedDatasource.value = ds
-  // 填充表单
   Object.assign(datasourceForm, {
     id: ds.id,
     name: ds.name,
@@ -308,15 +324,17 @@ const selectDatasource = (ds) => {
     username: ds.username,
     password: ds.password,
     options: ds.options || '',
-    description: ds.description || ''
+    description: ds.description || '',
+    status: ds.status || 'untested'
   })
 }
 
+// 3. 新建时取消选中并清空表单
 const createDatasource = () => {
-  selectedDatasource.value = null
-  Object.assign(datasourceForm, {
-    id: null,
-    name: '',
+  // 生成一个未命名但唯一的数据源对象
+  const newDs = {
+    id: Date.now(),
+    name: '未命名',
     type: 'mysql',
     host: '',
     port: 3306,
@@ -324,26 +342,36 @@ const createDatasource = () => {
     username: '',
     password: '',
     options: '',
-    description: ''
-  })
+    description: '',
+    status: 'untested'
+  }
+  // 添加到列表头部或尾部
+  datasourceList.value.push(newDs)
+  // 自动选中该项
+  selectedDatasource.value = newDs
+  // 同步表单内容
+  Object.assign(datasourceForm, newDs)
+}
+
+const onFormChange = () => {
+  if (selectedDatasource.value && selectedDatasource.value.status !== 'untested') {
+    selectedDatasource.value.status = 'untested'
+  }
+  datasourceForm.status = 'untested'
 }
 
 const saveDatasource = () => {
-  if (!datasourceForm.name.trim()) {
-    ElMessage.warning('请输入数据源名称')
+  if (!datasourceForm.name.trim() || datasourceForm.name.trim() === '未命名') {
+    ElMessage.warning('请为新建数据源输入名称')
     return
   }
-
   if (!datasourceForm.host.trim() || !datasourceForm.username.trim()) {
     ElMessage.warning('请填写必要的连接信息')
     return
   }
-
   saving.value = true
-
   setTimeout(() => {
     if (datasourceForm.id) {
-      // 更新现有数据源
       const index = datasourceList.value.findIndex(ds => ds.id === datasourceForm.id)
       if (index > -1) {
         datasourceList.value[index] = { ...datasourceForm }
@@ -351,15 +379,15 @@ const saveDatasource = () => {
       }
       ElMessage.success('数据源更新成功')
     } else {
-      // 创建新数据源
       const newDs = {
         ...datasourceForm,
         id: Date.now(),
-        status: 'disconnected'
+        status: 'untested'
       }
       datasourceList.value.push(newDs)
+      // 新建后自动选中
       selectedDatasource.value = newDs
-      datasourceForm.id = newDs.id
+      Object.assign(datasourceForm, newDs)
       ElMessage.success('数据源创建成功')
     }
     saving.value = false
@@ -371,13 +399,9 @@ const testConnection = () => {
     ElMessage.warning('请填写连接信息后再测试')
     return
   }
-
   testing.value = true
-
-  // 模拟连接测试
   setTimeout(() => {
-    const success = Math.random() > 0.3 // 70%成功率
-
+    const success = Math.random() > 0.3
     testResult.success = success
     testResult.message = success
         ? '数据库连接测试成功！'
@@ -385,16 +409,14 @@ const testConnection = () => {
     testResult.details = success
         ? `服务器: ${datasourceForm.host}:${datasourceForm.port}\n数据库: ${datasourceForm.database}\n连接时间: ${new Date().toLocaleString()}`
         : '错误代码: 1045\n错误信息: Access denied for user'
-
-    // 更新数据源状态
     if (selectedDatasource.value) {
-      selectedDatasource.value.status = success ? 'connected' : 'disconnected'
+      selectedDatasource.value.status = success ? 'tested' : 'failed'
+      datasourceForm.status = selectedDatasource.value.status
       const index = datasourceList.value.findIndex(ds => ds.id === selectedDatasource.value.id)
       if (index > -1) {
-        datasourceList.value[index].status = success ? 'connected' : 'disconnected'
+        datasourceList.value[index].status = selectedDatasource.value.status
       }
     }
-
     testing.value = false
     showTestResult.value = true
   }, 1500)
@@ -406,22 +428,16 @@ const handleCommand = async (command, datasource) => {
       selectDatasource(datasource)
       testConnection()
       break
-
-    case 'edit':
-      selectDatasource(datasource)
-      break
-
     case 'duplicate':
       const duplicated = {
         ...datasource,
         id: Date.now(),
         name: `${datasource.name} (副本)`,
-        status: 'disconnected'
+        status: 'untested'
       }
       datasourceList.value.push(duplicated)
       ElMessage.success('数据源复制成功')
       break
-
     case 'delete':
       try {
         await ElMessageBox.confirm(
@@ -429,7 +445,6 @@ const handleCommand = async (command, datasource) => {
             '确认删除',
             { type: 'warning' }
         )
-
         const index = datasourceList.value.findIndex(ds => ds.id === datasource.id)
         if (index > -1) {
           datasourceList.value.splice(index, 1)
@@ -447,6 +462,7 @@ const handleCommand = async (command, datasource) => {
 </script>
 
 <style scoped>
+/* 样式同你原有，无需修改 */
 .datasource-page {
   height: 100%;
   display: flex;
@@ -454,24 +470,20 @@ const handleCommand = async (command, datasource) => {
   background: #f5f7fa;
   padding: 24px;
 }
-
 .page-header {
   margin-bottom: 24px;
 }
-
 .page-header h1 {
   margin: 0 0 8px 0;
   font-size: 28px;
   color: #303133;
   font-weight: 600;
 }
-
 .page-header p {
   margin: 0;
   color: #909399;
   font-size: 16px;
 }
-
 .datasource-content {
   flex: 1;
   background: white;
@@ -479,25 +491,21 @@ const handleCommand = async (command, datasource) => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
-
 .datasource-layout {
   display: flex;
   height: 100%;
 }
-
 .ds-list-panel {
   width: 320px;
   border-right: 1px solid #e4e7ed;
   display: flex;
   flex-direction: column;
 }
-
 .ds-config-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
-
 .panel-header {
   display: flex;
   justify-content: space-between;
@@ -505,25 +513,21 @@ const handleCommand = async (command, datasource) => {
   padding: 16px 24px;
   border-bottom: 1px solid #e4e7ed;
 }
-
 .panel-header h3 {
   margin: 0;
   font-size: 18px;
   color: #303133;
   font-weight: 500;
 }
-
 .header-actions {
   display: flex;
   gap: 8px;
 }
-
 .ds-list {
   flex: 1;
   overflow-y: auto;
   padding: 8px;
 }
-
 .ds-item {
   display: flex;
   align-items: center;
@@ -534,52 +538,42 @@ const handleCommand = async (command, datasource) => {
   transition: all 0.2s;
   border: 1px solid transparent;
 }
-
 .ds-item:hover {
   background-color: #f5f7fa;
 }
-
 .ds-item.active {
   background-color: #e6f4ff;
   border-color: #409eff;
 }
-
 .ds-item-content {
   flex: 1;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-
 .ds-info {
   flex: 1;
 }
-
 .ds-name {
   font-size: 14px;
   font-weight: 500;
   color: #303133;
   margin-bottom: 4px;
 }
-
 .ds-type {
   font-size: 12px;
   color: #909399;
 }
-
 .ds-status {
   margin-right: 8px;
 }
-
 .ds-actions {
   opacity: 0;
   transition: opacity 0.2s;
 }
-
 .ds-item:hover .ds-actions {
   opacity: 1;
 }
-
 .more-icon {
   cursor: pointer;
   color: #909399;
@@ -587,24 +581,20 @@ const handleCommand = async (command, datasource) => {
   border-radius: 3px;
   transition: all 0.2s;
 }
-
 .more-icon:hover {
   background-color: #e6f4ff;
   color: #409eff;
 }
-
 .ds-form-container {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
-
 .ds-form {
   flex: 1;
   padding: 24px;
   overflow-y: auto;
 }
-
 .ds-empty {
   flex: 1;
   display: flex;
@@ -613,16 +603,13 @@ const handleCommand = async (command, datasource) => {
   justify-content: center;
   color: #909399;
 }
-
 .ds-empty p {
   margin-top: 16px;
   font-size: 16px;
 }
-
 .test-result {
   padding: 16px 0;
 }
-
 .result-status {
   display: flex;
   align-items: center;
@@ -631,25 +618,20 @@ const handleCommand = async (command, datasource) => {
   font-weight: 500;
   margin-bottom: 16px;
 }
-
 .result-status.success {
   color: #67c23a;
 }
-
 .result-status.error {
   color: #f56c6c;
 }
-
 .result-message {
   color: #606266;
   margin-bottom: 16px;
 }
-
 .result-details h4 {
   margin: 0 0 8px 0;
   color: #303133;
 }
-
 .result-details pre {
   background: #f5f7fa;
   padding: 12px;
@@ -658,24 +640,20 @@ const handleCommand = async (command, datasource) => {
   color: #606266;
   white-space: pre-wrap;
 }
-
 /* 确保下拉菜单中的图标和文字对齐 */
 :deep(.el-dropdown-menu__item) {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
 :deep(.el-dropdown-menu__item .el-icon) {
   font-size: 14px;
 }
-
 /* 响应式设计 */
 @media (max-width: 1024px) {
   .datasource-layout {
     flex-direction: column;
   }
-
   .ds-list-panel {
     width: 100%;
     max-height: 300px;
@@ -683,18 +661,15 @@ const handleCommand = async (command, datasource) => {
     border-bottom: 1px solid #e4e7ed;
   }
 }
-
 @media (max-width: 768px) {
   .datasource-page {
     padding: 16px;
   }
-
   .panel-header {
     flex-direction: column;
     gap: 12px;
     align-items: stretch;
   }
-
   .header-actions {
     justify-content: center;
   }

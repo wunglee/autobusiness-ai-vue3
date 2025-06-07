@@ -13,7 +13,7 @@
       <MCPConfigPanel v-if="currentTab === 'MCP'" :agent="agent" />
     </div>
     <div class="tab-actions">
-      <button class="submit-btn" @click="$emit('save')">确认</button>
+      <button class="submit-btn" @click="$emit('save')">保存</button>
     </div>
   </div>
 </template>

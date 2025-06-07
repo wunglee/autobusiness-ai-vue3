@@ -27,10 +27,15 @@
                 </div>
                 <div class="llm-status">
                   <el-tag
-                      :type="llm.status === 'connected' ? 'success' : 'info'"
+                      :type="llm.status === 'tested' ? 'success' : llm.status === 'failed' ? 'danger' : 'info'"
                       size="small"
                   >
-                    {{ llm.status === 'connected' ? '已连接' : '未连接' }}
+                    {{ llm.status === 'tested'
+                      ? '已测试'
+                      : llm.status === 'failed'
+                          ? '测试失败'
+                          : '待测试'
+                    }}
                   </el-tag>
                 </div>
               </div>
@@ -95,6 +100,7 @@
                 <el-input
                     v-model="llmForm.name"
                     placeholder="请输入大模型名称"
+                    @input="onFormChange"
                 />
               </el-form-item>
 
@@ -102,6 +108,7 @@
                 <el-input
                     v-model="llmForm.url"
                     placeholder="请输入API地址，如: https://api.openai.com/v1"
+                    @input="onFormChange"
                 />
               </el-form-item>
 
@@ -111,6 +118,7 @@
                     type="password"
                     placeholder="请输入API密钥"
                     show-password
+                    @input="onFormChange"
                 />
               </el-form-item>
 
@@ -123,6 +131,7 @@
                       :step="0.1"
                       :format-tooltip="(val) => `${val}`"
                       style="flex: 1; margin-right: 16px;"
+                      @change="onFormChange"
                   />
                   <el-input-number
                       v-model="llmForm.temperature"
@@ -131,6 +140,7 @@
                       :step="0.1"
                       :precision="1"
                       style="width: 120px;"
+                      @change="onFormChange"
                   />
                 </div>
                 <div class="field-description">
@@ -147,6 +157,7 @@
                       :step="100"
                       :format-tooltip="(val) => `${val}`"
                       style="flex: 1; margin-right: 16px;"
+                      @change="onFormChange"
                   />
                   <el-input-number
                       v-model="llmForm.maxTokens"
@@ -154,6 +165,7 @@
                       :max="32000"
                       :step="100"
                       style="width: 120px;"
+                      @change="onFormChange"
                   />
                 </div>
                 <div class="field-description">
@@ -168,6 +180,7 @@
                     filterable
                     allow-create
                     style="width: 100%"
+                    @change="onFormChange"
                 >
                   <el-option label="gpt-4o" value="gpt-4o" />
                   <el-option label="gpt-4o-mini" value="gpt-4o-mini" />
@@ -185,6 +198,7 @@
                     type="textarea"
                     :rows="4"
                     placeholder="请输入系统提示词"
+                    @input="onFormChange"
                 />
               </el-form-item>
 
@@ -194,6 +208,7 @@
                     type="textarea"
                     :rows="3"
                     placeholder="请输入大模型描述"
+                    @input="onFormChange"
                 />
               </el-form-item>
 
@@ -209,6 +224,7 @@
                             :step="0.1"
                             :format-tooltip="(val) => `${val}`"
                             style="flex: 1; margin-right: 16px;"
+                            @change="onFormChange"
                         />
                         <el-input-number
                             v-model="llmForm.topP"
@@ -217,6 +233,7 @@
                             :step="0.1"
                             :precision="1"
                             style="width: 120px;"
+                            @change="onFormChange"
                         />
                       </div>
                     </el-form-item>
@@ -230,6 +247,7 @@
                             :step="0.1"
                             :format-tooltip="(val) => `${val}`"
                             style="flex: 1; margin-right: 16px;"
+                            @change="onFormChange"
                         />
                         <el-input-number
                             v-model="llmForm.frequencyPenalty"
@@ -238,6 +256,7 @@
                             :step="0.1"
                             :precision="1"
                             style="width: 120px;"
+                            @change="onFormChange"
                         />
                       </div>
                     </el-form-item>
@@ -251,6 +270,7 @@
                             :step="0.1"
                             :format-tooltip="(val) => `${val}`"
                             style="flex: 1; margin-right: 16px;"
+                            @change="onFormChange"
                         />
                         <el-input-number
                             v-model="llmForm.presencePenalty"
@@ -259,6 +279,7 @@
                             :step="0.1"
                             :precision="1"
                             style="width: 120px;"
+                            @change="onFormChange"
                         />
                       </div>
                     </el-form-item>
@@ -269,6 +290,7 @@
                           :min="1"
                           :max="300"
                           style="width: 120px;"
+                          @change="onFormChange"
                       />
                     </el-form-item>
 
@@ -278,6 +300,7 @@
                           :min="0"
                           :max="10"
                           style="width: 120px;"
+                          @change="onFormChange"
                       />
                     </el-form-item>
                   </el-collapse-item>
@@ -349,6 +372,7 @@ const testing = ref(false)
 const saving = ref(false)
 const showTestResult = ref(false)
 
+// status: "untested" | "tested" | "failed"
 const llmForm = reactive({
   id: null,
   name: '',
@@ -363,7 +387,8 @@ const llmForm = reactive({
   systemPrompt: '',
   description: '',
   timeout: 30,
-  retries: 3
+  retries: 3,
+  status: 'untested'
 })
 
 const testResult = reactive({
@@ -387,7 +412,7 @@ const loadLlmList = () => {
       type: 'OpenAI',
       url: 'https://api.openai.com/v1',
       model: 'gpt-4o',
-      status: 'connected',
+      status: 'tested',
       temperature: 0.7,
       maxTokens: 4096,
       description: 'OpenAI GPT-4 模型'
@@ -398,7 +423,7 @@ const loadLlmList = () => {
       type: 'Anthropic',
       url: 'https://api.anthropic.com',
       model: 'claude-3-5-sonnet-20241022',
-      status: 'connected',
+      status: 'tested',
       temperature: 0.5,
       maxTokens: 8192,
       description: 'Anthropic Claude 3.5 模型'
@@ -409,7 +434,7 @@ const loadLlmList = () => {
       type: 'Google',
       url: 'https://generativelanguage.googleapis.com/v1',
       model: 'gemini-pro',
-      status: 'disconnected',
+      status: 'untested',
       temperature: 0.8,
       maxTokens: 2048,
       description: 'Google Gemini Pro 模型'
@@ -438,8 +463,17 @@ const selectLlm = (llm) => {
     systemPrompt: llm.systemPrompt || '',
     description: llm.description || '',
     timeout: llm.timeout || 30,
-    retries: llm.retries || 3
+    retries: llm.retries || 3,
+    status: llm.status || 'untested'
   })
+}
+
+// 表单内容变化时，状态恢复为“待测试”
+const onFormChange = () => {
+  if (selectedLlm.value && selectedLlm.value.status !== 'untested') {
+    selectedLlm.value.status = 'untested'
+  }
+  llmForm.status = 'untested'
 }
 
 const addLlm = () => {
@@ -458,7 +492,8 @@ const addLlm = () => {
     systemPrompt: '',
     description: '',
     timeout: 30,
-    retries: 3
+    retries: 3,
+    status: 'untested'
   })
 }
 
@@ -490,7 +525,7 @@ const saveLlm = () => {
         ...llmForm,
         id: Date.now(),
         type: getProviderType(llmForm.url),
-        status: 'disconnected'
+        status: 'untested'
       }
       llmList.value.push(newLlm)
       selectedLlm.value = newLlm
@@ -534,10 +569,11 @@ const testConnection = () => {
 
     // 更新大模型状态
     if (selectedLlm.value) {
-      selectedLlm.value.status = success ? 'connected' : 'disconnected'
+      selectedLlm.value.status = success ? 'tested' : 'failed'
+      llmForm.status = selectedLlm.value.status
       const index = llmList.value.findIndex(llm => llm.id === selectedLlm.value.id)
       if (index > -1) {
-        llmList.value[index].status = success ? 'connected' : 'disconnected'
+        llmList.value[index].status = selectedLlm.value.status
       }
     }
 
@@ -562,7 +598,7 @@ const handleLlmCommand = async (command, llm) => {
         ...llm,
         id: Date.now(),
         name: `${llm.name} (副本)`,
-        status: 'disconnected'
+        status: 'untested'
       }
       llmList.value.push(duplicated)
       ElMessage.success('大模型配置复制成功')
@@ -594,7 +630,6 @@ const handleLlmCommand = async (command, llm) => {
   }
 }
 </script>
-
 <style scoped>
 .llm-page {
   height: 100%;

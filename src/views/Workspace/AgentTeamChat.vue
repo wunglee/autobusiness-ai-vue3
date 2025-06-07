@@ -236,7 +236,7 @@
 
       <template #footer>
         <el-button @click="showAgentManager = false">取消</el-button>
-        <el-button type="primary" @click="saveAgentSelection">确认</el-button>
+        <el-button type="primary" @click="saveAgentSelection">保存</el-button>
       </template>
     </el-dialog>
 

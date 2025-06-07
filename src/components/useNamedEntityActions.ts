@@ -23,7 +23,7 @@ export function useNamedEntityActions() {
             title = '新建对象',
             label = '请输入名称',
             inputPlaceholder = '请输入名称',
-            inputPattern = /^[\w\-. ]+$/,
+            inputPattern = /^[\w\-. \p{Script=Han}]+$/u,
             inputErrorMessage = '名称格式不正确',
             confirmButtonText = '确定',
             cancelButtonText = '取消'
@@ -64,7 +64,7 @@ export function useNamedEntityActions() {
         const {
             title = '重命名',
             label = '请输入新名称',
-            inputPattern = /^[\w\-. ]+$/,
+            inputPattern =  /^[\w\-. \p{Script=Han}]+$/u,
             inputErrorMessage = '名称格式不正确',
             confirmButtonText = '确定',
             cancelButtonText = '取消'

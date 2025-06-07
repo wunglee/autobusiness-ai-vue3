@@ -50,7 +50,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import AgentCategoryList from '@/views/AgentConfig/AgentCategoryList.vue'
 import AgentList from '@/views/AgentConfig/AgentList.vue'
@@ -62,11 +62,11 @@ const categories = ref([
   { id: 2, name: '分类二' }
 ])
 const agents = ref([
-  { id: 1, name: '名称一', categoryId: 1 },
-  { id: 2, name: '名称二', categoryId: 1 },
-  { id: 3, name: '名称三', categoryId: 2 }
+  { id: 1, name: '名称一', categoryId: 1, message: '这是第一个智能体的描述信息...' },
+  { id: 2, name: '名称二', categoryId: 1, message: '这是第二个智能体的描述信息...' },
+  { id: 3, name: '名称三', categoryId: 2, message: '这是第三个智能体的描述信息...' }
 ])
-const selectedCategory = ref(categories.value[0]?.id ?? null)
+const selectedCategory = ref(null)
 const selectedAgent = ref(null)
 const currentTab = ref('描述')
 
@@ -74,6 +74,17 @@ const categoryWidth = ref(140)
 const listWidth = ref(200)
 const minCategoryWidth = 80
 const minListWidth = 80
+
+// 初始化默认选择
+onMounted(() => {
+  if (categories.value.length > 0) {
+    selectedCategory.value = categories.value[0].id
+    const firstAgent = filteredAgents.value[0]
+    if (firstAgent) {
+      selectedAgent.value = firstAgent
+    }
+  }
+})
 
 function onDragCategoryDivider(deltaX) {
   const newCategoryWidth = categoryWidth.value + deltaX
@@ -91,7 +102,9 @@ function onDragSiderDivider(deltaX) {
 
 function handleSelectCategory(id) {
   selectedCategory.value = id
-  selectedAgent.value = null // 切换分类时清空选中的智能体
+  // 切换分类时自动选择该分类下的第一个智能体
+  const firstAgent = agents.value.find(a => a.categoryId === id)
+  selectedAgent.value = firstAgent || null
 }
 
 function handleAddCategory() {
@@ -121,7 +134,9 @@ function handleDeleteCategory(category) {
     // 如果删除的是当前选中的分类，切换到第一个分类
     if (selectedCategory.value === category.id) {
       selectedCategory.value = categories.value[0]?.id || null
-      selectedAgent.value = null
+      const firstAgent = selectedCategory.value ?
+          agents.value.find(a => a.categoryId === selectedCategory.value) : null
+      selectedAgent.value = firstAgent || null
     }
 
     ElMessage.success('分类已删除')
@@ -145,7 +160,8 @@ function handleAddAgent() {
   const newAgent = {
     id: Date.now(),
     name: `新智能体${agents.value.length + 1}`,
-    categoryId: selectedCategory.value
+    categoryId: selectedCategory.value,
+    message: '新智能体的描述信息...'
   }
   agents.value.push(newAgent)
   ElMessage.success('智能体已创建')
@@ -168,9 +184,10 @@ function handleDeleteAgent(agent) {
   if (index !== -1) {
     agents.value.splice(index, 1)
 
-    // 如果删除的是当前选中的智能体，清空选择
+    // 如果删除的是当前选中的智能体，选择同分类下的第一个智能体
     if (selectedAgent.value?.id === agent.id) {
-      selectedAgent.value = null
+      const firstAgent = agents.value.find(a => a.categoryId === selectedCategory.value)
+      selectedAgent.value = firstAgent || null
     }
 
     ElMessage.success('智能体已删除')
@@ -209,13 +226,13 @@ function handleSave(data) {
 
 .agent-config-header {
   padding: 32px 0 16px 0;
-  font-size: 24px;
-  font-weight: 500;
-  color: #303133;
   text-align: center;
 }
 
 .agent-config-title {
+  font-size: 18px; /* 比header菜单栏（20px）小一号 */
+  font-weight: 500;
+  color: #303133;
   letter-spacing: 1px;
 }
 
@@ -225,6 +242,6 @@ function handleSave(data) {
   align-items: center;
   justify-content: center;
   color: #909399;
-  font-size: 16px;
+  font-size: 14px; /* 比标题小一号 */
 }
 </style>

@@ -7,7 +7,7 @@
             id="agent-name"
             class="form-input"
             v-model="form.name"
-            placeholder="Value"
+            placeholder="请输入智能体名称"
         />
       </div>
       <div class="form-row">
@@ -17,7 +17,7 @@
             class="form-textarea"
             v-model="form.message"
             rows="8"
-            placeholder="Value"
+            placeholder="请输入智能体描述信息"
         ></textarea>
       </div>
     </form>
@@ -25,7 +25,8 @@
 </template>
 
 <script setup>
-import { ref, watch, toRef } from 'vue'
+import { ref, watch } from 'vue'
+
 const props = defineProps({ agent: Object })
 
 const form = ref({
@@ -45,36 +46,43 @@ watch(() => props.agent, (newAgent) => {
   padding: 24px 28px 0 12px;
   border-radius: 10px;
 }
+
 .desc-form {
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
+
 .form-row {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
+
 .form-label {
-  font-size: 18px;
+  font-size: 14px; /* 与基础字体大小一致 */
   color: #444;
   margin-bottom: 2px;
+  font-weight: 500;
 }
+
 .form-input {
   padding: 10px 12px;
-  font-size: 18px;
+  font-size: 14px; /* 与基础字体大小一致 */
   border: 1.5px solid #ccc;
   border-radius: 8px;
   outline: none;
   background: #fff;
   transition: border 0.2s;
 }
+
 .form-input:focus {
   border: 1.5px solid #7ab0ff;
 }
+
 .form-textarea {
   min-height: 180px;
-  font-size: 17px;
+  font-size: 14px; /* 与基础字体大小一致 */
   padding: 12px;
   border: 1.5px solid #ccc;
   border-radius: 8px;
@@ -82,7 +90,9 @@ watch(() => props.agent, (newAgent) => {
   outline: none;
   background: #fff;
   transition: border 0.2s;
+  font-family: inherit;
 }
+
 .form-textarea:focus {
   border: 1.5px solid #7ab0ff;
 }

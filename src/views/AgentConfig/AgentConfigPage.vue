@@ -35,15 +35,17 @@
       <div class="agent-config-header">
         <span class="agent-config-title">智能体配置</span>
       </div>
-      <AgentConfigTabs
-          v-if="selectedAgent"
-          :agent="selectedAgent"
-          :tab="currentTab"
-          @tabChange="currentTab = $event"
-          @save="handleSave"
-      />
-      <div v-else class="agent-config-empty">
-        <span>请先选择一个智能体进行配置</span>
+      <div class="agent-config-content">
+        <AgentConfigTabs
+            v-if="selectedAgent"
+            :agent="selectedAgent"
+            :tab="currentTab"
+            @tabChange="currentTab = $event"
+            @save="handleSave"
+        />
+        <div v-else class="agent-config-empty">
+          <span>请先选择一个智能体进行配置</span>
+        </div>
       </div>
     </div>
   </div>
@@ -202,7 +204,7 @@ function handleSave(data) {
 <style scoped>
 .agent-config-page {
   display: flex;
-  height: 100%;
+  height: 100vh;
   background: #f5f7fa;
   overflow: hidden;
 }
@@ -213,27 +215,37 @@ function handleSave(data) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 80px;
+  flex-shrink: 0;
 }
 
 .agent-config-main {
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 0 32px;
+  flex: 1;
+  min-width: 300px;
   display: flex;
   flex-direction: column;
   background: #fff;
+  overflow: hidden;
 }
 
 .agent-config-header {
-  padding: 32px 0 16px 0;
+  padding: 24px 32px 16px 32px;
   text-align: center;
+  border-bottom: 1px solid #e4e7ed;
+  flex-shrink: 0;
 }
 
 .agent-config-title {
-  font-size: 18px; /* 比header菜单栏（20px）小一号 */
+  font-size: 18px;
   font-weight: 500;
   color: #303133;
   letter-spacing: 1px;
+}
+
+.agent-config-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 16px;
 }
 
 .agent-config-empty {
@@ -242,6 +254,72 @@ function handleSave(data) {
   align-items: center;
   justify-content: center;
   color: #909399;
-  font-size: 14px; /* 比标题小一号 */
+  font-size: 14px;
+}
+
+/* 响应式布局 */
+@media (max-width: 1200px) {
+  .agent-config-page {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .agent-category-list-wrap,
+  .agent-list-wrap {
+    height: 200px;
+    min-height: 150px;
+    width: 100% !important;
+    border-bottom: 1px solid #e4e7ed;
+  }
+
+  .agent-config-main {
+    flex: 1;
+    min-height: 400px;
+    min-width: auto;
+  }
+
+  .agent-config-header {
+    padding: 16px;
+  }
+
+  .agent-config-content {
+    padding: 0 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .agent-config-page {
+    min-height: 100vh;
+  }
+
+  .agent-category-list-wrap,
+  .agent-list-wrap {
+    height: 180px;
+    min-height: 120px;
+  }
+
+  .agent-config-main {
+    min-height: 350px;
+  }
+
+  .agent-config-header {
+    padding: 12px;
+  }
+
+  .agent-config-title {
+    font-size: 16px;
+  }
+
+  .agent-config-content {
+    padding: 0 4px;
+  }
+}
+
+/* 确保分隔线在小屏幕下隐藏 */
+@media (max-width: 1200px) {
+  :deep(.resizable-divider) {
+    display: none;
+  }
 }
 </style>

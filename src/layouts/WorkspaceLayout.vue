@@ -13,6 +13,9 @@
           <router-link to="/workspace/agent" class="nav-item" active-class="active">
             智能体
           </router-link>
+          <router-link to="/workspace/fileset" class="nav-item" active-class="active">
+            文件集
+          </router-link>
           <router-link to="/workspace/mcp" class="nav-item" active-class="active">
             MCP
           </router-link>
@@ -77,7 +80,7 @@
 
 .nav-menu {
   display: flex;
-  gap: 32px;
+  gap: 24px;
   flex: 1;
   justify-content: center;
 }
@@ -117,7 +120,7 @@
   }
 
   .nav-menu {
-    gap: 16px;
+    gap: 12px;
   }
 
   .nav-item {

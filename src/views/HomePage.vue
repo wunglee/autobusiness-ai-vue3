@@ -107,7 +107,7 @@ const router = useRouter()
 const featuresVisible = ref(false)
 
 const goToWorkspace = () => {
-  router.push('/workspace')
+  router.push('/workspace/workspace')
 }
 
 const showFeatures = () => {

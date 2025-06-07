@@ -5,6 +5,7 @@ import AgentConfigPage from '@/views/AgentConfig/AgentConfigPage.vue'
 import McpPage from '@/views/Mcp/McpPage.vue'
 import LlmPage from '@/views/llm/LlmPage.vue'
 import DataSourcePage from '@/views/DataSources/DataSourcePage.vue'
+import FileSetPage from '@/views/FileSet/FileSetPage.vue'
 
 const routes = [
   {
@@ -25,6 +26,11 @@ const routes = [
         path: 'agent',
         name: 'AgentConfig',
         component: AgentConfigPage
+      },
+      {
+        path: 'fileset',
+        name: 'FileSet',
+        component: FileSetPage
       },
       {
         path: 'mcp',

@@ -29,12 +29,14 @@
       <div v-if="localAttributes.length > 0" class="attributes-list">
         <draggable
             v-model="localAttributes"
-            item-key="key"
+            :item-key="(item) => item.key || item.id"
             handle=".drag-handle"
             @change="handleOrderChange"
+            tag="div"
+            class="drag-container"
         >
           <template #item="{ element, index }">
-            <div class="attr-item">
+            <div class="attr-item" :key="element.key || element.id || `attr-${index}`">
               <div class="drag-handle">
                 <el-icon><DCaret /></el-icon>
               </div>
@@ -62,7 +64,7 @@
                   <span class="options-label">选项:</span>
                   <el-tag
                       v-for="option in element.config.options.slice(0, 3)"
-                      :key="option.value"
+                      :key="option.value || option.label"
                       size="small"
                       effect="plain"
                   >
@@ -108,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, DCaret, DocumentAdd } from '@element-plus/icons-vue'
 import draggable from 'vuedraggable'
@@ -126,16 +128,25 @@ const props = defineProps({
 const emit = defineEmits(['update'])
 
 // 响应式数据
-const localAttributes = ref([...props.attributes])
+const localAttributes = ref([])
 const showDialog = ref(false)
 const isEditing = ref(false)
 const editingIndex = ref(-1)
 const currentAttribute = ref(null)
 
+// 初始化数据并确保每个属性都有唯一标识
+const initializeAttributes = () => {
+  localAttributes.value = props.attributes.map((attr, index) => ({
+    ...attr,
+    id: attr.id || attr.key || `attr-${Date.now()}-${index}`,
+    key: attr.key || `attr-${Date.now()}-${index}`
+  }))
+}
+
 // 监听外部属性变化
-watch(() => props.attributes, (newAttrs) => {
-  localAttributes.value = [...newAttrs]
-}, { deep: true })
+watch(() => props.attributes, () => {
+  initializeAttributes()
+}, { deep: true, immediate: true })
 
 // 系统属性定义
 const systemAttributes = ref([
@@ -180,7 +191,9 @@ const getTypeColor = (type) => {
 const showAddDialog = () => {
   isEditing.value = false
   editingIndex.value = -1
+  const newId = `attr-${Date.now()}-${Math.random()}`
   currentAttribute.value = {
+    id: newId,
     key: '',
     label: '',
     type: 'text',
@@ -238,6 +251,11 @@ const handleSaveAttribute = (attribute) => {
     return
   }
 
+  // 确保属性有唯一标识
+  if (!attribute.id) {
+    attribute.id = attribute.key || `attr-${Date.now()}-${Math.random()}`
+  }
+
   if (isEditing.value) {
     localAttributes.value[editingIndex.value] = attribute
   } else {
@@ -267,6 +285,11 @@ const resetForm = () => {
   isEditing.value = false
   editingIndex.value = -1
 }
+
+// 组件挂载时初始化
+onMounted(() => {
+  initializeAttributes()
+})
 </script>
 
 <style scoped>
@@ -348,6 +371,10 @@ const resetForm = () => {
   border: 1px solid #e4e7ed;
   border-radius: 6px;
   overflow: hidden;
+}
+
+.drag-container {
+  min-height: 50px;
 }
 
 .attr-item {

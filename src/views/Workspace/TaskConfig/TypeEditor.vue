@@ -357,6 +357,7 @@ const formatDate = (date) => {
 
 .config-tabs {
   flex: 1;
+  flex-direction: row;
   overflow: hidden;
 }
 

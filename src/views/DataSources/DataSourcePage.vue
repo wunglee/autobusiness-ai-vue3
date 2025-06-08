@@ -505,6 +505,8 @@ const handleCommand = async (command, datasource) => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0 !important;
+  overflow-y: auto;
 }
 .panel-header {
   display: flex;

@@ -21,7 +21,7 @@
         <h3 class="chat-title">智能体团队</h3>
       </div>
       <div class="header-right">
-        <el-button size="small" :icon="Setting" circle @click="showSettings = true" />
+        <el-button size="small" :icon="Setting" circle  @click="openAgentManager" />
       </div>
     </div>
 
@@ -92,7 +92,7 @@
         <el-divider />
         <div class="mention-item" @click="openAgentManager">
           <el-icon><Setting /></el-icon>
-          <span>管理智能体</span>
+          <span>管理群成员</span>
         </div>
       </div>
     </div>
@@ -161,7 +161,7 @@
     <!-- 智能体管理对话框 -->
     <el-dialog
         v-model="showAgentManager"
-        title="智能体工具"
+        title="管理群成员"
         width="900px"
         :append-to-body="true"
     >
@@ -298,7 +298,7 @@ const allAgents = ref([
   { id: 1, name: 'XX助手', description: '专业的编程助手', type: '编程助手', tools: ['代码生成', '代码优化', '错误检查'] },
   { id: 2, name: 'YY助手', description: '数据分析专家', type: '数据分析', tools: ['数据清洗', '统计分析', '可视化'] },
   { id: 3, name: 'CC助手', description: '文档编写助手', type: '文档助手', tools: ['文档生成', '格式转换', '翻译'] },
-  { id: 4, name: '管理智能体', description: '团队协作管理', type: '管理工具', tools: ['任务分配', '进度跟踪'] }
+  { id: 4, name: '管理群成员', description: '团队协作管理', type: '管理工具', tools: ['任务分配', '进度跟踪'] }
 ])
 
 const availableAgentList = ref([...allAgents.value])

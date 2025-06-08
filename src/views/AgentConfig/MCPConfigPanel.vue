@@ -47,17 +47,6 @@
           </tr>
           </tbody>
         </table>
-        <div class="table-actions">
-          <el-button size="small" @click="addNewMcp">新增</el-button>
-          <el-button
-              size="small"
-              type="danger"
-              :disabled="leftSelection.length === 0"
-              @click="deleteSelectedLeft"
-          >
-            删除选中
-          </el-button>
-        </div>
       </div>
 
       <!-- 中间操作按钮 -->
@@ -169,7 +158,6 @@ import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   Check,
-  Close,
   MoreFilled,
   ArrowRight,
   ArrowLeft
@@ -246,25 +234,6 @@ function editMcp() {
   showDetailDialog.value = false
 }
 
-function addNewMcp() {
-  const newMcp = {
-    id: Date.now(),
-    name: `NewTool${leftList.value.length + 1}`,
-    desc: '新建MCP工具',
-    enabled: false,
-    version: '1.0.0',
-    features: '待配置'
-  }
-  leftList.value.push(newMcp)
-  ElMessage.success('新MCP工具已创建')
-}
-
-function deleteSelectedLeft() {
-  leftList.value = leftList.value.filter(item => !leftSelection.value.includes(item.id))
-  const count = leftSelection.value.length
-  leftSelection.value = []
-  ElMessage.success(`已删除 ${count} 个工具`)
-}
 </script>
 
 <style scoped>

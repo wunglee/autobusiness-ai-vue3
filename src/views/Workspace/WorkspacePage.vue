@@ -26,14 +26,26 @@
 
     <!-- 主工作区 -->
     <div class="workspace-main">
-      <FileManager
-          :files="currentFiles"
-          @create-file="handleCreateFile"
-          @create-folder="handleCreateFolder"
-          @rename-file="handleRenameFile"
-          @delete-file="handleDeleteFile"
-          @save-content="handleSaveContent"
-      />
+      <el-tabs
+          v-model="activeMainTab"
+          tab-position="left"
+          class="workspace-main-tabs"
+          type="border-card"
+      >
+        <el-tab-pane label="任务看板" name="taskBoard">
+          <TaskBoard />
+        </el-tab-pane>
+        <el-tab-pane label="文件管理" name="fileManager">
+          <FileManager
+              :files="currentFiles"
+              @create-file="handleCreateFile"
+              @create-folder="handleCreateFolder"
+              @rename-file="handleRenameFile"
+              @delete-file="handleDeleteFile"
+              @save-content="handleSaveContent"
+          />
+        </el-tab-pane>
+      </el-tabs>
     </div>
 
     <!-- 智能体团队侧边栏 -->
@@ -76,9 +88,11 @@ import { ElMessage } from 'element-plus'
 import { ChatDotRound, ArrowLeft } from '@element-plus/icons-vue'
 import WorkspaceList from '@/views/Workspace/WorkspaceList.vue'
 import FileManager from '@/views/Workspace/FileManager.vue'
+import TaskBoard from '@/views/Workspace/TaskBoard.vue'
 import AgentTeamChat from '@/views/Workspace/AgentTeamChat.vue'
 import { useResizePanel } from '@/components/useResizePanel'
 import WorkspaceConfigDialog from './WorkspaceConfigDialog.vue'
+
 // ======= 原有数据与业务方法 =======
 const activeWorkspaceId = ref(null)
 const workspaces = ref([])
@@ -86,6 +100,7 @@ const currentFiles = ref([])
 const showAgentTeamChat = ref(false)
 const showCreateDialog = ref(false)
 const editingWorkspace = ref(null)
+const activeMainTab = ref('taskBoard') // 默认显示任务看板
 const workspaceForm = ref({
   name: '',
   description: '',
@@ -497,6 +512,71 @@ const {
   overflow: hidden;
   position: relative;
   min-width: 0;
+}
+
+.workspace-main-tabs {
+  height: 100%;
+  --el-tabs-header-height: 100%;
+}
+
+.workspace-main-tabs :deep(.el-tabs__header) {
+  margin: 0;
+  border-right: 1px solid #e4e7ed;
+  border-bottom: none;
+  width: 60px;
+  background: #fafbfc;
+}
+
+.workspace-main-tabs :deep(.el-tabs__nav-wrap) {
+  height: 100%;
+}
+
+.workspace-main-tabs :deep(.el-tabs__nav) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-main-tabs :deep(.el-tabs__item) {
+  text-align: center;
+  border: none;
+  border-bottom: 1px solid #e4e7ed;
+  border-radius: 0;
+  padding: 20px 8px; /* 调整padding */
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
+  background: transparent;
+  transition: all 0.2s;
+  writing-mode: vertical-rl; /* 设置竖向排列 */
+  text-orientation: mixed;
+  min-height: auto;
+  height: auto;
+}
+
+.workspace-main-tabs :deep(.el-tabs__item:hover) {
+  background: #f5f7fa;
+  color: #409eff;
+}
+
+.workspace-main-tabs :deep(.el-tabs__item.is-active) {
+  background: #ffffff;
+  color: #409eff;
+  border-right: 3px solid #409eff;
+  font-weight: 600;
+}
+
+.workspace-main-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.workspace-main-tabs :deep(.el-tab-pane) {
+  height: 100%;
+  overflow: hidden;
 }
 
 .agent-team-sidebar {

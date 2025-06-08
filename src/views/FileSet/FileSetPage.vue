@@ -11,22 +11,31 @@
           <div class="list-panel">
             <div class="panel-header">
               <h3>文件列表</h3>
-              <div class="panel-actions">
-                <el-button size="small" :icon="Upload" class="btn-main" @click="uploadFiles">上传文件</el-button>
-                <el-button
+              <div class="panel-header-right">
+                <el-input
+                    v-model="fileSearchKeyword"
+                    placeholder="搜索文件名或类型"
                     size="small"
-                    type="danger"
-                    class="btn-danger"
-                    :icon="Delete"
-                    :disabled="selectedFiles.length === 0"
-                    @click="deleteSelectedFiles"
-                >
-                  删除选中
-                </el-button>
+                    clearable
+                    style="width: 200px; margin-right: 12px"
+                />
+                <div class="panel-actions">
+                  <el-button size="small" :icon="Upload" class="btn-main" @click="uploadFiles">上传文件</el-button>
+                  <el-button
+                      size="small"
+                      type="danger"
+                      class="btn-danger"
+                      :icon="Delete"
+                      :disabled="selectedFiles.length === 0"
+                      @click="deleteSelectedFiles"
+                  >
+                    删除选中
+                  </el-button>
+                </div>
               </div>
             </div>
             <el-table
-                :data="fileList"
+                :data="filteredFileList"
                 border
                 style="width: 100%"
                 height="500"
@@ -74,22 +83,31 @@
           <div class="list-panel">
             <div class="panel-header">
               <h3>网址列表</h3>
-              <div class="panel-actions">
-                <el-button size="small" :icon="Plus" class="btn-main" @click="showAddUrlDialog">新增网址</el-button>
-                <el-button
+              <div class="panel-header-right">
+                <el-input
+                    v-model="urlSearchKeyword"
+                    placeholder="搜索网址名称或描述"
                     size="small"
-                    type="danger"
-                    class="btn-danger"
-                    :icon="Delete"
-                    :disabled="selectedUrls.length === 0"
-                    @click="deleteSelectedUrls"
-                >
-                  删除选中
-                </el-button>
+                    clearable
+                    style="width: 200px; margin-right: 12px"
+                />
+                <div class="panel-actions">
+                  <el-button size="small" :icon="Plus" class="btn-main" @click="showAddUrlDialog">新增网址</el-button>
+                  <el-button
+                      size="small"
+                      type="danger"
+                      class="btn-danger"
+                      :icon="Delete"
+                      :disabled="selectedUrls.length === 0"
+                      @click="deleteSelectedUrls"
+                  >
+                    删除选中
+                  </el-button>
+                </div>
               </div>
             </div>
             <el-table
-                :data="urlList"
+                :data="filteredUrlList"
                 border
                 style="width: 100%"
                 height="500"
@@ -175,6 +193,8 @@ import {
   Edit,
   View
 } from '@element-plus/icons-vue'
+import { useListFilter } from '@/components/useListFilter'
+
 // 响应式数据
 const activeTab = ref('files')
 const fileList = ref([])
@@ -191,6 +211,22 @@ const urlForm = ref({
 })
 
 const fileInput = ref(null)
+
+// 使用列表过滤 hook - 文件列表
+const {
+  searchKeyword: fileSearchKeyword,
+  createSearchFilteredList: createFileFilteredList
+} = useListFilter()
+
+// 使用列表过滤 hook - 网址列表
+const {
+  searchKeyword: urlSearchKeyword,
+  createSearchFilteredList: createUrlFilteredList
+} = useListFilter()
+
+// 创建过滤后的列表
+const filteredFileList = createFileFilteredList(fileList, ['name', 'type', 'path'])
+const filteredUrlList = createUrlFilteredList(urlList, ['name', 'url', 'description'])
 
 // 初始化数据
 onMounted(() => {
@@ -224,6 +260,22 @@ const loadFileList = () => {
       size: '15.8MB',
       type: 'ZIP',
       createTime: '2024-01-13 09:20'
+    },
+    {
+      id: 4,
+      name: 'user-manual.docx',
+      path: '/uploads/docs/user-manual.docx',
+      size: '800KB',
+      type: 'Word',
+      createTime: '2024-01-12 14:30'
+    },
+    {
+      id: 5,
+      name: 'presentation.pptx',
+      path: '/uploads/docs/presentation.pptx',
+      size: '5.2MB',
+      type: 'PPT',
+      createTime: '2024-01-11 16:20'
     }
   ]
 }
@@ -250,6 +302,20 @@ const loadUrlList = () => {
       url: 'https://element-plus.org/',
       description: 'Element Plus UI组件库文档',
       createTime: '2024-01-13 09:20'
+    },
+    {
+      id: 4,
+      name: 'GitHub仓库',
+      url: 'https://github.com/example/project',
+      description: '项目代码仓库',
+      createTime: '2024-01-12 11:15'
+    },
+    {
+      id: 5,
+      name: '技术博客',
+      url: 'https://blog.example.com',
+      description: '团队技术博客分享',
+      createTime: '2024-01-11 09:30'
     }
   ]
 }
@@ -257,12 +323,15 @@ const loadUrlList = () => {
 const handleFileSelectionChange = (selection) => {
   selectedFiles.value = selection
 }
+
 const handleUrlSelectionChange = (selection) => {
   selectedUrls.value = selection
 }
+
 const uploadFiles = () => {
   fileInput.value.click()
 }
+
 const handleFileUpload = (event) => {
   const files = Array.from(event.target.files)
   files.forEach(file => {
@@ -279,6 +348,7 @@ const handleFileUpload = (event) => {
   ElMessage.success(`成功上传 ${files.length} 个文件`)
   event.target.value = ''
 }
+
 const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 B'
   const k = 1024
@@ -286,6 +356,7 @@ const formatFileSize = (bytes) => {
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
+
 const getFileType = (filename) => {
   const ext = filename.split('.').pop().toLowerCase()
   const typeMap = {
@@ -306,9 +377,11 @@ const getFileType = (filename) => {
   }
   return typeMap[ext] || 'Other'
 }
+
 const downloadFile = (file) => {
   ElMessage.success(`开始下载: ${file.name}`)
 }
+
 const deleteFile = async (file) => {
   try {
     await ElMessageBox.confirm(
@@ -323,6 +396,7 @@ const deleteFile = async (file) => {
     }
   } catch {}
 }
+
 const deleteSelectedFiles = async () => {
   try {
     await ElMessageBox.confirm(
@@ -336,17 +410,20 @@ const deleteSelectedFiles = async () => {
     ElMessage.success('批量删除成功')
   } catch {}
 }
+
 // 网址相关方法
 const showAddUrlDialog = () => {
   editingUrl.value = null
   urlForm.value = { name: '', url: '', description: '' }
   showUrlDialog.value = true
 }
+
 const editUrl = (url) => {
   editingUrl.value = url
   urlForm.value = { ...url }
   showUrlDialog.value = true
 }
+
 const saveUrl = () => {
   if (!urlForm.value.name.trim() || !urlForm.value.url.trim()) {
     ElMessage.warning('请填写名称和网址')
@@ -373,9 +450,11 @@ const saveUrl = () => {
   }
   showUrlDialog.value = false
 }
+
 const openUrl = (url) => {
   window.open(url, '_blank')
 }
+
 const deleteUrl = async (url) => {
   try {
     await ElMessageBox.confirm(
@@ -390,6 +469,7 @@ const deleteUrl = async (url) => {
     }
   } catch {}
 }
+
 const deleteSelectedUrls = async () => {
   try {
     await ElMessageBox.confirm(
@@ -414,9 +494,11 @@ const deleteSelectedUrls = async () => {
   padding: 32px 32px 0 32px;
   overflow: hidden;
 }
+
 .page-header {
   margin-bottom: 28px;
 }
+
 .page-header h1 {
   margin: 0 0 6px 0;
   font-size: 26px;
@@ -424,6 +506,7 @@ const deleteSelectedUrls = async () => {
   font-weight: 600;
   letter-spacing: 0.5px;
 }
+
 .page-header p {
   margin: 0;
   color: #a0a4ad;
@@ -431,6 +514,7 @@ const deleteSelectedUrls = async () => {
   font-weight: 400;
   letter-spacing: 0.1px;
 }
+
 .fileset-content {
   flex: 1;
   background: #fff;
@@ -442,16 +526,20 @@ const deleteSelectedUrls = async () => {
   display: flex;
   flex-direction: column;
 }
+
 .modern-card {
   border-radius: 12px;
   box-shadow: 0 4px 24px 0 rgba(44, 78, 165, 0.09);
 }
+
 .fileset-tabs {
   height: 100%;
 }
+
 .list-panel {
   padding: 12px 28px 0 28px;
 }
+
 .panel-header {
   display: flex;
   justify-content: space-between;
@@ -459,6 +547,7 @@ const deleteSelectedUrls = async () => {
   margin-bottom: 18px;
   flex-shrink: 0;
 }
+
 .panel-header h3 {
   margin: 0;
   font-size: 18px;
@@ -466,10 +555,17 @@ const deleteSelectedUrls = async () => {
   font-weight: 600;
   letter-spacing: 0.5px;
 }
+
+.panel-header-right {
+  display: flex;
+  align-items: center;
+}
+
 .panel-actions {
   display: flex;
   gap: 8px;
 }
+
 .btn-main {
   background: #f5f7fa !important;
   border: 1px solid #e3e5e8 !important;
@@ -478,11 +574,13 @@ const deleteSelectedUrls = async () => {
   box-shadow: none !important;
   border-radius: 6px !important;
 }
+
 .btn-main:hover {
   background: #f0f6ff !important;
   border: 1px solid #b7d8fb !important;
   color: #409eff;
 }
+
 .btn-danger {
   background: #fff0f0 !important;
   border: 1px solid #ffdddd !important;
@@ -490,22 +588,27 @@ const deleteSelectedUrls = async () => {
   font-weight: 500;
   border-radius: 6px !important;
 }
+
 .btn-danger:hover {
   background: #fff2f2 !important;
   border: 1px solid #ffa8a8 !important;
   color: #d81b36;
 }
+
 .btn-action {
   color: #bdbdbd;
   font-size: 16px;
   margin-right: 6px;
 }
+
 .btn-action:last-child {
   margin-right: 0;
 }
+
 .btn-action:hover {
   color: #409eff;
 }
+
 .modern-table {
   --el-table-border-color: #f0f0f0;
   --el-table-header-bg-color: #fafbfc;
@@ -519,10 +622,12 @@ const deleteSelectedUrls = async () => {
   --el-table-header-border-bottom: 1px solid #f0f0f0;
   border-radius: 8px;
 }
+
 :deep(.el-table),
 :deep(.el-table__body-wrapper) {
   background: none !important;
 }
+
 :deep(.el-table th),
 :deep(.el-table thead) {
   background: #fafbfc !important;
@@ -532,6 +637,7 @@ const deleteSelectedUrls = async () => {
   color: #3d4352 !important;
   letter-spacing: 0.2px;
 }
+
 :deep(.el-table td),
 :deep(.el-table__cell) {
   border-bottom: 1px solid #f5f5f6 !important;
@@ -539,27 +645,34 @@ const deleteSelectedUrls = async () => {
   color: #2d2d2d !important;
   background: none !important;
 }
+
 :deep(.el-table__body tr:hover) td {
   background: #f5f7fa !important;
 }
+
 :deep(.el-table__row) {
   transition: background 0.2s;
 }
+
 :deep(.el-table__empty-block) {
   background: none !important;
 }
+
 :deep(.el-table__column-resize-proxy) {
   display: none !important;
 }
+
 :deep(.el-table .cell) {
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
 }
+
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
   border-color: #409eff !important;
   background-color: #409eff !important;
 }
+
 :deep(.el-checkbox__inner) {
   border-radius: 3px !important;
   border: 1.5px solid #bdbdbd !important;
@@ -567,27 +680,33 @@ const deleteSelectedUrls = async () => {
   width: 18px !important;
   height: 18px !important;
 }
+
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
   background: #409eff !important;
   border-color: #409eff !important;
 }
+
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner::after) {
   border-color: #fff !important;
 }
+
 .modern-form {
   width: 100%;
   padding: 0;
   background: none;
 }
+
 :deep(.modern-form .el-form-item__label) {
   color: #344563;
   font-weight: 500;
   font-size: 14px;
   letter-spacing: 0.1px;
 }
+
 :deep(.modern-form .el-form-item__content) {
   font-size: 15px;
 }
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -595,40 +714,48 @@ const deleteSelectedUrls = async () => {
   width: 100%;
   margin-top: 16px;
 }
+
 .modern-dialog {
   border-radius: 10px !important;
   box-shadow: none !important;
   background: #fff !important;
   padding: 0 !important;
 }
+
 :deep(.modern-dialog .el-dialog__header) {
   border-bottom: 1px solid #f0f0f0 !important;
   background: #fafbfc !important;
   margin-bottom: 12px !important;
   padding: 18px 24px 10px 24px !important;
 }
+
 :deep(.modern-dialog .el-dialog__title) {
   font-weight: 600;
   font-size: 16px;
   color: #222;
 }
+
 :deep(.modern-dialog .el-dialog__body) {
   padding: 24px !important;
 }
+
 :deep(.modern-dialog .el-form-item__label) {
   color: #344563 !important;
   font-size: 14px !important;
   font-weight: 500 !important;
 }
+
 :deep(.modern-dialog .el-form-item__content) {
   font-size: 15px !important;
 }
+
 :deep(.modern-dialog .el-input__wrapper) {
   border-radius: 5px !important;
   background: #f5f7fa !important;
   border: 1px solid #e3e5e8 !important;
   box-shadow: none !important;
 }
+
 :deep(.modern-dialog .el-textarea__inner) {
   border-radius: 5px !important;
   background: #f5f7fa !important;
@@ -636,14 +763,42 @@ const deleteSelectedUrls = async () => {
   box-shadow: none !important;
   font-size: 15px;
 }
+
 /* 响应式设计 */
 @media (max-width: 900px) {
-  .fileset-page { padding: 12px; }
-  .list-panel { padding: 16px 8px 0 8px; }
-  .panel-header { margin-bottom: 10px; }
+  .fileset-page {
+    padding: 12px;
+  }
+
+  .list-panel {
+    padding: 16px 8px 0 8px;
+  }
+
+  .panel-header {
+    margin-bottom: 10px;
+  }
 }
+
 @media (max-width: 600px) {
-  .panel-header { flex-direction: column; gap: 10px; align-items: stretch; }
-  .panel-actions { justify-content: center; }
+  .panel-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .panel-header-right {
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .panel-header-right .el-input {
+    width: 100% !important;
+    margin-right: 0 !important;
+  }
+
+  .panel-actions {
+    justify-content: center;
+  }
 }
 </style>

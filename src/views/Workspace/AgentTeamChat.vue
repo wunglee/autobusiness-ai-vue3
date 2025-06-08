@@ -165,120 +165,32 @@
         width="900px"
         :append-to-body="true"
     >
-      <div class="agent-manager-dual">
-        <div class="agent-list-section">
-          <div class="section-header">
-            <h4>备选智能体</h4>
-            <el-input
-                v-model="searchKeyword"
-                placeholder="搜索智能体"
-                :prefix-icon="Search"
-                size="small"
-                style="width: 200px"
-            />
-          </div>
-          <div class="agent-list available-list">
-            <div
-                v-for="agent in availableAgentList"
-                :key="agent.id"
-                class="agent-row"
-                @click="addToSelected(agent)"
-            >
-              <el-icon class="agent-avatar"><Avatar /></el-icon>
-              <div class="agent-info">
-                <div class="agent-name">{{ agent.name }}</div>
-                <div class="agent-desc">{{ agent.description }}</div>
-              </div>
-              <el-button
-                  text
-                  :icon="MoreFilled"
-                  circle
-                  size="small"
-                  @click.stop="showAgentDetail(agent)"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div class="agent-transfer-buttons">
-          <el-button :icon="ArrowRight" circle @click="addAllToSelected" />
-          <el-button :icon="ArrowLeft" circle @click="removeAllFromSelected" />
-        </div>
-
-        <div class="agent-list-section">
-          <div class="section-header">
-            <h4>已选智能体</h4>
-            <span class="selected-count">{{ selectedAgentList.length }} 个</span>
-          </div>
-          <div class="agent-list selected-list">
-            <div
-                v-for="agent in selectedAgentList"
-                :key="agent.id"
-                class="agent-row"
-                @click="removeFromSelected(agent)"
-            >
-              <el-icon class="agent-avatar"><Avatar /></el-icon>
-              <div class="agent-info">
-                <div class="agent-name">{{ agent.name }}</div>
-                <div class="agent-desc">{{ agent.description }}</div>
-              </div>
-              <el-button
-                  text
-                  :icon="MoreFilled"
-                  circle
-                  size="small"
-                  @click.stop="showAgentDetail(agent)"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      <AgentTab
+          :selected-agent-list="selectedAgentList"
+          :global-agents="allAgents"
+          :show-transfer-buttons="true"
+          @update:selected-agent-list="updateSelectedAgents"
+      />
 
       <template #footer>
         <el-button @click="showAgentManager = false">取消</el-button>
         <el-button type="primary" @click="saveAgentSelection">保存</el-button>
       </template>
     </el-dialog>
-
-    <!-- 智能体详情对话框 -->
-    <el-dialog
-        v-model="showDetailDialog"
-        :title="detailAgent?.name"
-        width="600px"
-        :append-to-body="true"
-    >
-      <div v-if="detailAgent" class="agent-detail">
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="名称">{{ detailAgent.name }}</el-descriptions-item>
-          <el-descriptions-item label="描述">{{ detailAgent.description }}</el-descriptions-item>
-          <el-descriptions-item label="类型">{{ detailAgent.type || '通用助手' }}</el-descriptions-item>
-          <el-descriptions-item label="版本">{{ detailAgent.version || '1.0.0' }}</el-descriptions-item>
-          <el-descriptions-item label="MCP工具">
-            <el-tag v-for="tool in detailAgent.tools" :key="tool" size="small" style="margin-right: 8px">
-              {{ tool }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ detailAgent.createTime || '2024-01-01' }}</el-descriptions-item>
-        </el-descriptions>
-      </div>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, reactive, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, reactive, nextTick, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   Monitor,
   User,
   Avatar,
   Setting,
-  Tools,
-  Search,
-  MoreFilled,
-  ArrowRight,
-  ArrowLeft
+  Tools
 } from '@element-plus/icons-vue'
+import AgentTab from '../Workspace/ConfigTabs/AgentTab.vue'
 
 // 响应式数据
 const messages = ref([])
@@ -295,19 +207,16 @@ const currentMentionPosition = ref(0)
 
 // 智能体列表
 const allAgents = ref([
-  { id: 1, name: 'XX助手', description: '专业的编程助手', type: '编程助手', tools: ['代码生成', '代码优化', '错误检查'] },
-  { id: 2, name: 'YY助手', description: '数据分析专家', type: '数据分析', tools: ['数据清洗', '统计分析', '可视化'] },
-  { id: 3, name: 'CC助手', description: '文档编写助手', type: '文档助手', tools: ['文档生成', '格式转换', '翻译'] },
-  { id: 4, name: '管理群成员', description: '团队协作管理', type: '管理工具', tools: ['任务分配', '进度跟踪'] }
+  { id: 1, name: 'XX助手', description: '专业的编程助手', category: '编程助手', tools: ['代码生成', '代码优化', '错误检查'] },
+  { id: 2, name: 'YY助手', description: '数据分析专家', category: '数据分析', tools: ['数据清洗', '统计分析', '可视化'] },
+  { id: 3, name: 'CC助手', description: '文档编写助手', category: '文档助手', tools: ['文档生成', '格式转换', '翻译'] },
+  { id: 4, name: 'DD助手', description: '项目管理助手', category: '管理工具', tools: ['任务分配', '进度跟踪'] },
+  { id: 5, name: 'EE助手', description: '测试工程师助手', category: '测试工具', tools: ['自动化测试', '质量保证'] }
 ])
 
-const availableAgentList = ref([...allAgents.value])
 const selectedAgentList = ref([])
 
 const showAgentManager = ref(false)
-const showDetailDialog = ref(false)
-const detailAgent = ref(null)
-const searchKeyword = ref('')
 
 // MCP工具相关
 const showToolsPopover = ref(false)
@@ -630,37 +539,12 @@ const openAgentManager = () => {
   showAgentManager.value = true
 }
 
-// 智能体管理功能
-const addToSelected = (agent) => {
-  if (!selectedAgentList.value.find(a => a.id === agent.id)) {
-    selectedAgentList.value.push(agent)
-  }
+// 更新选中的智能体列表
+const updateSelectedAgents = (newAgents) => {
+  selectedAgentList.value = newAgents
 }
 
-const removeFromSelected = (agent) => {
-  const index = selectedAgentList.value.findIndex(a => a.id === agent.id)
-  if (index > -1) {
-    selectedAgentList.value.splice(index, 1)
-  }
-}
-
-const addAllToSelected = () => {
-  availableAgentList.value.forEach(agent => {
-    if (!selectedAgentList.value.find(a => a.id === agent.id)) {
-      selectedAgentList.value.push(agent)
-    }
-  })
-}
-
-const removeAllFromSelected = () => {
-  selectedAgentList.value = []
-}
-
-const showAgentDetail = (agent) => {
-  detailAgent.value = agent
-  showDetailDialog.value = true
-}
-
+// 保存智能体配置
 const saveAgentSelection = () => {
   showAgentManager.value = false
   ElMessage.success('智能体配置已保存')
@@ -1096,100 +980,6 @@ onUnmounted(() => {
   cursor: nw-resize;
 }
 
-/* 智能体管理双列表样式 */
-.agent-manager-dual {
-  display: flex;
-  gap: 20px;
-  align-items: stretch;
-  height: 500px;
-}
-
-.agent-list-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e4e7ed;
-}
-
-.section-header h4 {
-  margin: 0;
-  font-size: 16px;
-  color: #303133;
-}
-
-.selected-count {
-  font-size: 14px;
-  color: #909399;
-}
-
-.agent-list {
-  flex: 1;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  overflow-y: auto;
-  background: #fafbfc;
-}
-
-.agent-row {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid #e4e7ed;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.agent-row:hover {
-  background: #f5f7fa;
-}
-
-.agent-row:last-child {
-  border-bottom: none;
-}
-
-.agent-avatar {
-  font-size: 28px;
-  color: #667eea;
-  margin-right: 12px;
-}
-
-.agent-info {
-  flex: 1;
-}
-
-.agent-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #303133;
-}
-
-.agent-desc {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 2px;
-}
-
-.agent-transfer-buttons {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 12px;
-  padding: 0 8px;
-}
-
-/* 智能体详情样式 */
-.agent-detail {
-  padding: 16px;
-}
-
 /* MCP工具列表样式 */
 .mcp-tools-list h4 {
   margin: 0 0 8px 0;
@@ -1212,31 +1002,27 @@ onUnmounted(() => {
 /* 滚动条样式 */
 .chat-body::-webkit-scrollbar,
 .message-input::-webkit-scrollbar,
-.mention-menu::-webkit-scrollbar,
-.agent-list::-webkit-scrollbar {
+.mention-menu::-webkit-scrollbar {
   width: 6px;
 }
 
 .chat-body::-webkit-scrollbar-track,
 .message-input::-webkit-scrollbar-track,
-.mention-menu::-webkit-scrollbar-track,
-.agent-list::-webkit-scrollbar-track {
+.mention-menu::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 3px;
 }
 
 .chat-body::-webkit-scrollbar-thumb,
 .message-input::-webkit-scrollbar-thumb,
-.mention-menu::-webkit-scrollbar-thumb,
-.agent-list::-webkit-scrollbar-thumb {
+.mention-menu::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 3px;
 }
 
 .chat-body::-webkit-scrollbar-thumb:hover,
 .message-input::-webkit-scrollbar-thumb:hover,
-.mention-menu::-webkit-scrollbar-thumb:hover,
-.agent-list::-webkit-scrollbar-thumb:hover {
+.mention-menu::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
 </style>

@@ -1,20 +1,22 @@
 <template>
-  <div class="tab-pane-content summary-pane">
-    <el-form :model="form" label-width="90px">
-      <el-form-item label="工作组名称" required>
-        <el-input v-model="form.name" placeholder="请输入工作组名称" maxlength="50" show-word-limit />
-      </el-form-item>
-      <el-form-item label="任务描述">
-        <el-input
-            v-model="form.description"
-            type="textarea"
-            placeholder="请输入任务描述"
-            maxlength="200"
-            show-word-limit
-            :rows="4"
-        />
-      </el-form-item>
-    </el-form>
+  <div class="tab-pane-content">
+    <div class="summary-pane">
+      <el-form :model="form" label-width="90px">
+        <el-form-item label="工作组名称" required>
+          <el-input v-model="form.name" placeholder="请输入工作组名称" maxlength="50" show-word-limit />
+        </el-form-item>
+        <el-form-item label="任务描述">
+          <el-input
+              v-model="form.description"
+              type="textarea"
+              placeholder="请输入任务描述"
+              maxlength="200"
+              show-word-limit
+              :rows="4"
+          />
+        </el-form-item>
+      </el-form>
+    </div>
   </div>
 </template>
 
@@ -31,16 +33,29 @@ const emit = defineEmits(['update:form'])
 
 <style scoped>
 .tab-pane-content {
-  padding: 32px 32px 10px 32px;
+  padding: 24px;
   background: #fff;
   border-radius: 10px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .summary-pane .el-form {
   background: none;
-  max-width: 560px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 :deep(.summary-pane .el-form-item__label) {
@@ -52,5 +67,24 @@ const emit = defineEmits(['update:form'])
 
 :deep(.summary-pane .el-form-item__content) {
   font-size: 15px;
+}
+
+:deep(.summary-pane .el-input),
+:deep(.summary-pane .el-textarea) {
+  width: 100%;
+}
+
+:deep(.summary-pane .el-form-item:last-child) {
+  flex: 1;
+}
+
+:deep(.summary-pane .el-form-item:last-child .el-textarea) {
+  height: 100%;
+}
+
+:deep(.summary-pane .el-form-item:last-child .el-textarea__inner) {
+  height: 100% !important;
+  min-height: 200px !important;
+  resize: none;
 }
 </style>

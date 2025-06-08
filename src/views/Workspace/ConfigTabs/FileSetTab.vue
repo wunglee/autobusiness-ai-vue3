@@ -1,79 +1,157 @@
 <template>
   <div class="transfer-panel">
-    <div class="transfer-layout">
-      <!-- 左侧全局文件集 -->
-      <div class="transfer-list-panel">
-        <div class="panel-header">
-          <h4>全局文件集</h4>
-          <div class="panel-search">
-            <el-input
-                v-model="searchKeyword"
-                placeholder="搜索文件集"
-                size="small"
-                :prefix-icon="Search"
-                style="width: 200px"
-            />
+    <el-tabs v-model="activeTab" class="resource-tabs">
+      <!-- 文件Tab -->
+      <el-tab-pane label="文件" name="files">
+        <div class="transfer-layout">
+          <!-- 左侧全局文件 -->
+          <div class="transfer-list-panel">
+            <div class="panel-header">
+              <h4>全局文件</h4>
+              <div class="panel-search">
+                <el-input
+                    v-model="fileSearchKeyword"
+                    placeholder="搜索文件"
+                    size="small"
+                    :prefix-icon="Search"
+                    style="width: 200px"
+                />
+              </div>
+            </div>
+            <el-table
+                :data="filteredGlobalFiles"
+                border
+                style="width: 100%"
+                height="350"
+                @selection-change="handleFileLeftSelection"
+            >
+              <el-table-column type="selection" width="50" />
+              <el-table-column prop="name" label="名称" show-overflow-tooltip />
+              <el-table-column prop="type" label="类型" width="80" />
+              <el-table-column prop="size" label="大小" width="80" />
+            </el-table>
+          </div>
+
+          <!-- 中间操作按钮 -->
+          <div class="transfer-actions">
+            <el-button
+                type="primary"
+                :icon="ArrowRight"
+                :disabled="fileLeftSelection.length === 0"
+                @click="addFilesToWorkspace"
+            >
+              添加到工作区
+            </el-button>
+            <el-button
+                type="warning"
+                :icon="ArrowLeft"
+                :disabled="fileRightSelection.length === 0"
+                @click="removeFilesFromWorkspace"
+            >
+              从工作区移除
+            </el-button>
+          </div>
+
+          <!-- 右侧工作区文件 -->
+          <div class="transfer-list-panel">
+            <div class="panel-header">
+              <h4>工作区文件</h4>
+              <span class="selected-count">{{ selectedFiles.length }} 个</span>
+            </div>
+            <el-table
+                :data="selectedFiles"
+                border
+                style="width: 100%"
+                height="350"
+                @selection-change="handleFileRightSelection"
+            >
+              <el-table-column type="selection" width="50" />
+              <el-table-column prop="name" label="名称" show-overflow-tooltip />
+              <el-table-column prop="type" label="类型" width="80" />
+              <el-table-column prop="size" label="大小" width="80" />
+            </el-table>
           </div>
         </div>
-        <el-table
-            :data="filteredGlobalFileSets"
-            border
-            style="width: 100%"
-            height="350"
-            @selection-change="handleFileSetLeftSelection"
-        >
-          <el-table-column type="selection" width="50" />
-          <el-table-column prop="name" label="名称" show-overflow-tooltip />
-          <el-table-column prop="type" label="类型" width="80" />
-          <el-table-column prop="size" label="大小" width="80" />
-        </el-table>
-      </div>
+      </el-tab-pane>
 
-      <!-- 中间操作按钮 -->
-      <div class="transfer-actions">
-        <el-button
-            type="primary"
-            :icon="ArrowRight"
-            :disabled="fileSetLeftSelection.length === 0"
-            @click="addFileSetToWorkspace"
-        >
-          添加到工作区
-        </el-button>
-        <el-button
-            type="warning"
-            :icon="ArrowLeft"
-            :disabled="fileSetRightSelection.length === 0"
-            @click="removeFileSetFromWorkspace"
-        >
-          从工作区移除
-        </el-button>
-      </div>
+      <!-- 网址Tab -->
+      <el-tab-pane label="网址" name="urls">
+        <div class="transfer-layout">
+          <!-- 左侧全局网址 -->
+          <div class="transfer-list-panel">
+            <div class="panel-header">
+              <h4>全局网址</h4>
+              <div class="panel-search">
+                <el-input
+                    v-model="urlSearchKeyword"
+                    placeholder="搜索网址"
+                    size="small"
+                    :prefix-icon="Search"
+                    style="width: 200px"
+                />
+              </div>
+            </div>
+            <el-table
+                :data="filteredGlobalUrls"
+                border
+                style="width: 100%"
+                height="350"
+                @selection-change="handleUrlLeftSelection"
+            >
+              <el-table-column type="selection" width="50" />
+              <el-table-column prop="name" label="名称" show-overflow-tooltip />
+              <el-table-column prop="url" label="网址" show-overflow-tooltip />
+              <el-table-column prop="description" label="描述" show-overflow-tooltip />
+            </el-table>
+          </div>
 
-      <!-- 右侧工作区文件集 -->
-      <div class="transfer-list-panel">
-        <div class="panel-header">
-          <h4>工作区文件集</h4>
-          <span class="selected-count">{{ form.selectedFileSets.length }} 个</span>
+          <!-- 中间操作按钮 -->
+          <div class="transfer-actions">
+            <el-button
+                type="primary"
+                :icon="ArrowRight"
+                :disabled="urlLeftSelection.length === 0"
+                @click="addUrlsToWorkspace"
+            >
+              添加到工作区
+            </el-button>
+            <el-button
+                type="warning"
+                :icon="ArrowLeft"
+                :disabled="urlRightSelection.length === 0"
+                @click="removeUrlsFromWorkspace"
+            >
+              从工作区移除
+            </el-button>
+          </div>
+
+          <!-- 右侧工作区网址 -->
+          <div class="transfer-list-panel">
+            <div class="panel-header">
+              <h4>工作区网址</h4>
+              <span class="selected-count">{{ selectedUrls.length }} 个</span>
+            </div>
+            <el-table
+                :data="selectedUrls"
+                border
+                style="width: 100%"
+                height="350"
+                @selection-change="handleUrlRightSelection"
+            >
+              <el-table-column type="selection" width="50" />
+              <el-table-column prop="name" label="名称" show-overflow-tooltip />
+              <el-table-column prop="url" label="网址" show-overflow-tooltip />
+              <el-table-column prop="description" label="描述" show-overflow-tooltip />
+            </el-table>
+          </div>
         </div>
-        <el-table
-            :data="form.selectedFileSets"
-            border
-            style="width: 100%"
-            height="350"
-            @selection-change="handleFileSetRightSelection"
-        >
-          <el-table-column type="selection" width="50" />
-          <el-table-column prop="name" label="名称" show-overflow-tooltip />
-          <el-table-column prop="type" label="类型" width="80" />
-          <el-table-column prop="size" label="大小" width="80" />
-        </el-table>
-      </div>
-    </div>
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ArrowRight, ArrowLeft, Search } from '@element-plus/icons-vue'
 import { useListFilter } from '@/components/useListFilter'
 
@@ -90,45 +168,98 @@ const props = defineProps({
 
 const emit = defineEmits(['update:form'])
 
-// 使用列表过滤 hook
-const { searchKeyword, createFilteredList } = useListFilter()
+// Tab状态
+const activeTab = ref('files')
 
-// 创建过滤后的全局文件集列表
-const filteredGlobalFileSets = createFilteredList(
-    ref(props.globalFileSets),
-    props.form.selectedFileSets,
+// 文件过滤hook
+const {
+  searchKeyword: fileSearchKeyword,
+  createFilteredList: createFileFilteredList
+} = useListFilter()
+
+// 网址过滤hook
+const {
+  searchKeyword: urlSearchKeyword,
+  createFilteredList: createUrlFilteredList
+} = useListFilter()
+
+// 分离文件和网址数据
+const globalFiles = computed(() => props.globalFileSets.filter(item => item.type !== '网址'))
+const globalUrls = computed(() => props.globalFileSets.filter(item => item.type === '网址'))
+
+const selectedFiles = computed(() => props.form.selectedFileSets.filter(item => item.type !== '网址'))
+const selectedUrls = computed(() => props.form.selectedFileSets.filter(item => item.type === '网址'))
+
+// 创建过滤后的列表
+const filteredGlobalFiles = createFileFilteredList(
+    globalFiles,
+    selectedFiles,
     ['name', 'type']
 )
 
+const filteredGlobalUrls = createUrlFilteredList(
+    globalUrls,
+    selectedUrls,
+    ['name', 'url', 'description']
+)
+
 // 选择状态
-const fileSetLeftSelection = ref([])
-const fileSetRightSelection = ref([])
+const fileLeftSelection = ref([])
+const fileRightSelection = ref([])
+const urlLeftSelection = ref([])
+const urlRightSelection = ref([])
 
-// 选择处理方法
-const handleFileSetLeftSelection = (selection) => {
-  fileSetLeftSelection.value = selection
+// 文件选择处理方法
+const handleFileLeftSelection = (selection) => {
+  fileLeftSelection.value = selection
 }
 
-const handleFileSetRightSelection = (selection) => {
-  fileSetRightSelection.value = selection
+const handleFileRightSelection = (selection) => {
+  fileRightSelection.value = selection
 }
 
-// 添加到工作区方法
-const addFileSetToWorkspace = () => {
-  fileSetLeftSelection.value.forEach(item => {
+// 网址选择处理方法
+const handleUrlLeftSelection = (selection) => {
+  urlLeftSelection.value = selection
+}
+
+const handleUrlRightSelection = (selection) => {
+  urlRightSelection.value = selection
+}
+
+// 文件操作方法
+const addFilesToWorkspace = () => {
+  fileLeftSelection.value.forEach(item => {
     if (!props.form.selectedFileSets.find(selected => selected.id === item.id)) {
       props.form.selectedFileSets.push(item)
     }
   })
-  fileSetLeftSelection.value = []
+  fileLeftSelection.value = []
   emit('update:form', props.form)
 }
 
-// 从工作区移除方法
-const removeFileSetFromWorkspace = () => {
-  const selectedIds = fileSetRightSelection.value.map(item => item.id)
+const removeFilesFromWorkspace = () => {
+  const selectedIds = fileRightSelection.value.map(item => item.id)
   props.form.selectedFileSets = props.form.selectedFileSets.filter(item => !selectedIds.includes(item.id))
-  fileSetRightSelection.value = []
+  fileRightSelection.value = []
+  emit('update:form', props.form)
+}
+
+// 网址操作方法
+const addUrlsToWorkspace = () => {
+  urlLeftSelection.value.forEach(item => {
+    if (!props.form.selectedFileSets.find(selected => selected.id === item.id)) {
+      props.form.selectedFileSets.push(item)
+    }
+  })
+  urlLeftSelection.value = []
+  emit('update:form', props.form)
+}
+
+const removeUrlsFromWorkspace = () => {
+  const selectedIds = urlRightSelection.value.map(item => item.id)
+  props.form.selectedFileSets = props.form.selectedFileSets.filter(item => !selectedIds.includes(item.id))
+  urlRightSelection.value = []
   emit('update:form', props.form)
 }
 </script>
@@ -141,10 +272,28 @@ const removeFileSetFromWorkspace = () => {
   box-shadow: none;
 }
 
+.resource-tabs {
+  height: 100%;
+  --el-tabs-header-height: 40px;
+}
+
+.resource-tabs :deep(.el-tabs__header) {
+  margin: 0 0 16px 0;
+}
+
+.resource-tabs :deep(.el-tabs__content) {
+  height: calc(100% - 56px);
+}
+
+.resource-tabs :deep(.el-tab-pane) {
+  height: 100%;
+}
+
 .transfer-layout {
   display: flex;
   gap: 20px;
   align-items: stretch;
+  height: 100%;
 }
 
 .transfer-list-panel {

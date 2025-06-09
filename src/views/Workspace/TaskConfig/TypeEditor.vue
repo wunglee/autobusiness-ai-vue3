@@ -502,4 +502,8 @@ const formatDate = (date) => {
 .icon-grid::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+.config-tabs :deep(.el-tabs__item) {
+  padding: 20px 16px !important;
+  min-width: 50px !important;
+}
 </style>

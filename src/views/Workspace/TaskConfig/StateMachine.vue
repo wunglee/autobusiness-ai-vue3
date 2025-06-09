@@ -5,9 +5,6 @@
       <p class="section-desc">设计任务的状态流转规则，定义状态节点和转换条件</p>
       <div class="machine-tools">
         <el-button size="small" :icon="Plus" @click="addStatus">添加状态</el-button>
-        <el-button size="small" :icon="Connection" @click="toggleConnectMode">
-          {{ connectMode ? '退出连接' : '连接模式' }}
-        </el-button>
         <el-button size="small" :icon="Refresh" @click="autoLayout">自动布局</el-button>
       </div>
     </div>
@@ -26,13 +23,13 @@
             :key="status.key"
             :status="status"
             :selected="selectedStatus?.key === status.key"
-            :connecting="connectMode"
-            :connect-source="connectSource"
+            :all-statuses="localStatuses"
             @select="handleSelectStatus"
             @move="handleMoveStatus"
-            @connect="handleConnectStatus"
             @edit="editStatus"
             @delete="deleteStatus"
+            @start-connect="handleStartConnect"
+            @resolve-conflicts="handleResolveConflicts"
         />
 
         <!-- 连接线 -->
@@ -58,31 +55,122 @@
             >
               <polygon points="0 0, 10 3.5, 0 7" fill="#409eff" />
             </marker>
+            <marker
+                id="arrowhead-temp"
+                markerWidth="10"
+                markerHeight="7"
+                refX="10"
+                refY="3.5"
+                orient="auto"
+            >
+              <polygon points="0 0, 10 3.5, 0 7" fill="#67c23a" />
+            </marker>
           </defs>
 
-          <path
+          <!-- 现有连接线 -->
+          <g
               v-for="transition in transitionPaths"
               :key="transition.id"
-              :d="transition.path"
-              :class="[
-                'transition-path',
-                { 'selected': selectedTransition?.id === transition.id }
-              ]"
-              :marker-end="selectedTransition?.id === transition.id ? 'url(#arrowhead-active)' : 'url(#arrowhead)'"
-              @click="selectTransition(transition)"
-          />
+              class="transition-group"
+              @mouseenter="handleTransitionMouseEnter(transition, $event)"
+              @mouseleave="handleTransitionMouseLeave"
+          >
+            <path
+                :d="transition.path"
+                :class="[
+                  'transition-path',
+                  { 'selected': selectedTransition?.id === transition.id }
+                ]"
+                :marker-end="selectedTransition?.id === transition.id ?
+                  'url(#arrowhead-active)' : 'url(#arrowhead)'"
+                @click="selectTransition(transition)"
+            />
 
-          <!-- 临时连接线 -->
+            <!-- 可拖拽的箭头 -->
+            <circle
+                :cx="transition.toPoint.x"
+                :cy="transition.toPoint.y"
+                r="8"
+                fill="transparent"
+                class="arrow-drag-area"
+                @mousedown.stop="handleArrowDragStart(transition, $event)"
+            />
+
+            <!-- 连接线悬浮操作按钮 -->
+            <g
+                v-if="hoveredTransition?.id === transition.id"
+                class="transition-actions"
+                :transform="`translate(${transition.midPoint.x}, ${transition.midPoint.y})`"
+            >
+              <circle
+                  cx="0"
+                  cy="0"
+                  r="20"
+                  fill="white"
+                  stroke="#e4e7ed"
+                  stroke-width="1"
+                  class="action-background"
+              />
+              <g transform="translate(-12, -6)">
+                <rect
+                    x="0"
+                    y="0"
+                    width="12"
+                    height="12"
+                    fill="transparent"
+                    class="action-button edit-btn"
+                    @click.stop="editTransition(transition.transition)"
+                />
+                <path
+                    d="M2 7 L6 3 L8 5 L4 9 L2 9 Z"
+                    fill="#409eff"
+                    pointer-events="none"
+                />
+              </g>
+              <g transform="translate(2, -6)">
+                <rect
+                    x="0"
+                    y="0"
+                    width="12"
+                    height="12"
+                    fill="transparent"
+                    class="action-button delete-btn"
+                    @click.stop="deleteTransitionConfirm(transition.transition)"
+                />
+                <path
+                    d="M3 3 L9 9 M9 3 L3 9"
+                    stroke="#f56c6c"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    pointer-events="none"
+                />
+              </g>
+            </g>
+          </g>
+
+          <!-- 临时连接线（拖拽时的连线） -->
           <path
               v-if="tempConnection"
               :d="tempConnection"
               class="temp-connection"
-              stroke="#409eff"
-              stroke-width="2"
-              stroke-dasharray="5,5"
+              stroke="#67c23a"
+              stroke-width="3"
               fill="none"
+              marker-end="url(#arrowhead-temp)"
           />
         </svg>
+
+        <!-- 目标状态高亮框 -->
+        <div
+            v-if="highlightTarget"
+            class="target-highlight"
+            :style="{
+              left: `${highlightTarget.x - 5}px`,
+              top: `${highlightTarget.y - 5}px`,
+              width: '110px',
+              height: '70px'
+            }"
+        ></div>
       </div>
     </div>
 
@@ -182,7 +270,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Connection, Refresh, Close } from '@element-plus/icons-vue'
+import { Plus, Refresh, Close } from '@element-plus/icons-vue'
 import StateNode from './StateNode.vue'
 import TransitionEditor from './TransitionEditor.vue'
 
@@ -207,12 +295,18 @@ const localTransitions = ref([...props.transitions])
 const canvasRef = ref(null)
 const selectedStatus = ref(null)
 const selectedTransition = ref(null)
-const connectMode = ref(false)
-const connectSource = ref(null)
 const tempConnection = ref('')
 const mousePos = ref({ x: 0, y: 0 })
+const isConnecting = ref(false)
+const connectSource = ref(null)
+const highlightTarget = ref(null)
+const hoveredTransition = ref(null)
 
-// 状态编辑相关
+// 拖拽连线相关
+const isDraggingArrow = ref(false)
+const draggingTransition = ref(null)
+
+// 对话框相关
 const showStatusDialog = ref(false)
 const editingStatus = ref(null)
 const statusForm = ref({
@@ -224,7 +318,107 @@ const statusForm = ref({
   position: { x: 100, y: 100 }
 })
 
-// 监听外部数据变化
+// 计算连接线路径
+const transitionPaths = computed(() => {
+  return localTransitions.value.map(transition => {
+    const fromStatus = localStatuses.value.find(s => s.key === transition.fromStatus)
+    const toStatus = localStatuses.value.find(s => s.key === transition.toStatus)
+
+    if (!fromStatus || !toStatus) return null
+
+    const fromCenter = {
+      x: fromStatus.position.x + 50,
+      y: fromStatus.position.y + 30
+    }
+    const toCenter = {
+      x: toStatus.position.x + 50,
+      y: toStatus.position.y + 30
+    }
+
+    // 计算最佳连接点和路径
+    const { fromPoint, toPoint, path } = calculateConnectionPath(fromStatus, toStatus)
+
+    // 计算中点（用于显示操作按钮）
+    const midPoint = {
+      x: (fromPoint.x + toPoint.x) / 2,
+      y: (fromPoint.y + toPoint.y) / 2
+    }
+
+    return {
+      id: transition.id,
+      path,
+      transition,
+      midPoint,
+      fromPoint,
+      toPoint
+    }
+  }).filter(Boolean)
+})
+
+// 计算连接路径
+const calculateConnectionPath = (fromStatus, toStatus) => {
+  const fromRect = {
+    x: fromStatus.position.x,
+    y: fromStatus.position.y,
+    width: 100,
+    height: 60
+  }
+
+  const toRect = {
+    x: toStatus.position.x,
+    y: toStatus.position.y,
+    width: 100,
+    height: 60
+  }
+
+  const fromCenter = {
+    x: fromRect.x + fromRect.width / 2,
+    y: fromRect.y + fromRect.height / 2
+  }
+
+  const toCenter = {
+    x: toRect.x + toRect.width / 2,
+    y: toRect.y + toRect.height / 2
+  }
+
+  // 计算最佳连接边
+  const dx = toCenter.x - fromCenter.x
+  const dy = toCenter.y - fromCenter.y
+
+  let fromPoint, toPoint
+
+  // 优先使用直线连接
+  if (Math.abs(dx) > Math.abs(dy)) {
+    // 水平连接
+    if (dx > 0) {
+      // 从右到左
+      fromPoint = { x: fromRect.x + fromRect.width, y: fromCenter.y }
+      toPoint = { x: toRect.x, y: toCenter.y }
+    } else {
+      // 从左到右
+      fromPoint = { x: fromRect.x, y: fromCenter.y }
+      toPoint = { x: toRect.x + toRect.width, y: toCenter.y }
+    }
+  } else {
+    // 垂直连接
+    if (dy > 0) {
+      // 从下到上
+      fromPoint = { x: fromCenter.x, y: fromRect.y + fromRect.height }
+      toPoint = { x: toCenter.x, y: toRect.y }
+    } else {
+      // 从上到下
+      fromPoint = { x: fromCenter.x, y: fromRect.y }
+      toPoint = { x: toCenter.x, y: toRect.y + toRect.height }
+    }
+  }
+
+  // 生成路径（优先直线）
+  const path = `M ${fromPoint.x} ${fromPoint.y} L ${toPoint.x} ${toPoint.y}`
+
+  return { fromPoint, toPoint, path }
+}
+
+// 监听props变化
 watch(() => props.statuses, (newStatuses) => {
   localStatuses.value = [...newStatuses]
 }, { deep: true })
@@ -233,87 +427,175 @@ watch(() => props.transitions, (newTransitions) => {
   localTransitions.value = [...newTransitions]
 }, { deep: true })
 
-// 计算转换路径
-const transitionPaths = computed(() => {
-  return localTransitions.value.map(transition => {
-    const fromStatus = localStatuses.value.find(s => s.key === transition.fromStatus)
-    const toStatus = localStatuses.value.find(s => s.key === transition.toStatus)
-
-    if (!fromStatus || !toStatus) return null
-
-    const fromPos = fromStatus.position
-    const toPos = toStatus.position
-
-    // 计算节点中心点
-    const fromCenter = { x: fromPos.x + 50, y: fromPos.y + 30 }
-    const toCenter = { x: toPos.x + 50, y: toPos.y + 30 }
-
-    // 计算连接点（节点边缘）
-    const angle = Math.atan2(toCenter.y - fromCenter.y, toCenter.x - fromCenter.x)
-    const fromEdge = {
-      x: fromCenter.x + Math.cos(angle) * 50,
-      y: fromCenter.y + Math.sin(angle) * 30
-    }
-    const toEdge = {
-      x: toCenter.x - Math.cos(angle) * 50,
-      y: toCenter.y - Math.sin(angle) * 30
-    }
-
-    // 生成贝塞尔曲线路径
-    const dx = toEdge.x - fromEdge.x
-    const dy = toEdge.y - fromEdge.y
-    const controlOffset = Math.min(Math.abs(dx), Math.abs(dy)) * 0.5
-
-    const path = `M ${fromEdge.x} ${fromEdge.y}
-                  C ${fromEdge.x + controlOffset} ${fromEdge.y},
-                    ${toEdge.x - controlOffset} ${toEdge.y},
-                    ${toEdge.x} ${toEdge.y}`
-
-    return {
-      id: transition.id,
-      path,
-      transition
-    }
-  }).filter(Boolean)
-})
-
 // 方法
 const handleCanvasClick = (event) => {
-  if (connectMode.value) return
-
-  clearSelection()
+  if (event.target === canvasRef.value) {
+    clearSelection()
+    if (isConnecting.value) {
+      // 取消连接
+      isConnecting.value = false
+      connectSource.value = null
+      tempConnection.value = ''
+      highlightTarget.value = null
+    }
+  }
 }
 
 const handleMouseMove = (event) => {
+  if (!canvasRef.value) return
+
   const rect = canvasRef.value.getBoundingClientRect()
   mousePos.value = {
     x: event.clientX - rect.left,
     y: event.clientY - rect.top
   }
 
-  if (connectMode.value && connectSource.value) {
-    const sourcePos = connectSource.value.position
-    const sourceCenter = { x: sourcePos.x + 50, y: sourcePos.y + 30 }
-
-    tempConnection.value = `M ${sourceCenter.x} ${sourceCenter.y} L ${mousePos.value.x} ${mousePos.value.y}`
+  // 更新临时连接线
+  if (isConnecting.value && connectSource.value) {
+    updateTempConnection()
+    updateTargetHighlight()
   }
+
+  // 更新拖拽连线
+  if (isDraggingArrow.value && draggingTransition.value) {
+    updateDragConnection()
+    updateTargetHighlight()
+  }
+}
+
+const updateTempConnection = () => {
+  if (!connectSource.value) return
+
+  const sourcePos = connectSource.value.position
+  const sourceCenter = { x: sourcePos.x + 50, y: sourcePos.y + 30 }
+
+  // 直线连接到鼠标位置
+  tempConnection.value = `M ${sourceCenter.x} ${sourceCenter.y} L ${mousePos.value.x} ${mousePos.value.y}`
+}
+
+const updateDragConnection = () => {
+  if (!draggingTransition.value) return
+
+  const fromStatus = localStatuses.value.find(s => s.key === draggingTransition.value.transition.fromStatus)
+  if (!fromStatus) return
+
+  const sourcePos = fromStatus.position
+  const sourceCenter = { x: sourcePos.x + 50, y: sourcePos.y + 30 }
+
+  // 使用实线连接
+  tempConnection.value = `M ${sourceCenter.x} ${sourceCenter.y} L ${mousePos.value.x} ${mousePos.value.y}`
+}
+
+const updateTargetHighlight = () => {
+  // 检查鼠标是否悬停在目标状态上
+  const targetStatus = localStatuses.value.find(status => {
+    if (isConnecting.value && status.key === connectSource.value?.key) return false
+    if (isDraggingArrow.value && status.key === draggingTransition.value?.transition.fromStatus) return false
+
+    const statusBounds = {
+      left: status.position.x,
+      top: status.position.y,
+      right: status.position.x + 100,
+      bottom: status.position.y + 60
+    }
+
+    return mousePos.value.x >= statusBounds.left &&
+        mousePos.value.x <= statusBounds.right &&
+        mousePos.value.y >= statusBounds.top &&
+        mousePos.value.y <= statusBounds.bottom
+  })
+
+  highlightTarget.value = targetStatus ? targetStatus.position : null
 }
 
 const handleMouseUp = () => {
-  // 处理连接完成
+  if (isConnecting.value) {
+    // 检查是否释放在目标状态上
+    const targetStatus = getTargetStatusAtMouse()
+
+    if (targetStatus) {
+      handleConnectStatus(targetStatus)
+    }
+
+    // 结束连接模式
+    isConnecting.value = false
+    connectSource.value = null
+    tempConnection.value = ''
+    highlightTarget.value = null
+  }
+
+  if (isDraggingArrow.value) {
+    // 检查是否释放在目标状态上
+    const targetStatus = getTargetStatusAtMouse()
+
+    if (targetStatus && draggingTransition.value) {
+      // 更新连接的目标
+      const transition = draggingTransition.value.transition
+      transition.toStatus = targetStatus.key
+      transition.name = `${localStatuses.value.find(s => s.key === transition.fromStatus)?.label} → ${targetStatus.label}`
+
+      updateTransition(transition)
+      ElMessage.success('连接已更新')
+    }
+
+    // 结束拖拽
+    isDraggingArrow.value = false
+    draggingTransition.value = null
+    tempConnection.value = ''
+    highlightTarget.value = null
+  }
+}
+
+const getTargetStatusAtMouse = () => {
+  return localStatuses.value.find(status => {
+    const statusBounds = {
+      left: status.position.x,
+      top: status.position.y,
+      right: status.position.x + 100,
+      bottom: status.position.y + 60
+    }
+
+    return mousePos.value.x >= statusBounds.left &&
+        mousePos.value.x <= statusBounds.right &&
+        mousePos.value.y >= statusBounds.top &&
+        mousePos.value.y <= statusBounds.bottom
+  })
+}
+
+const handleStartConnect = (status, event) => {
+  connectSource.value = status
+  isConnecting.value = true
+
+  // 立即更新鼠标位置和临时连接线
+  const rect = canvasRef.value.getBoundingClientRect()
+  mousePos.value = {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  }
+
+  updateTempConnection()
+}
+
+const handleArrowDragStart = (transitionPath, event) => {
+  event.preventDefault()
+  event.stopPropagation()
+
+  isDraggingArrow.value = true
+  draggingTransition.value = transitionPath
+
+  // 更新鼠标位置
+  const rect = canvasRef.value.getBoundingClientRect()
+  mousePos.value = {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  }
+
+  updateDragConnection()
 }
 
 const handleSelectStatus = (status) => {
-  if (connectMode.value) {
-    if (!connectSource.value) {
-      connectSource.value = status
-    } else {
-      handleConnectStatus(status)
-    }
-  } else {
-    selectedStatus.value = status
-    selectedTransition.value = null
-  }
+  selectedStatus.value = status
+  selectedTransition.value = null
 }
 
 const handleMoveStatus = (status, position) => {
@@ -322,6 +604,11 @@ const handleMoveStatus = (status, position) => {
     localStatuses.value[index].position = position
     emit('update-statuses', localStatuses.value)
   }
+}
+
+const handleResolveConflicts = (conflicts) => {
+  // 更新冲突节点的位置
+  emit('update-statuses', localStatuses.value)
 }
 
 const handleConnectStatus = (targetStatus) => {
@@ -343,20 +630,44 @@ const handleConnectStatus = (targetStatus) => {
     name: `${connectSource.value.label} → ${targetStatus.label}`,
     fromStatus: connectSource.value.key,
     toStatus: targetStatus.key,
-    conditions: [],
-    actions: [],
-    trigger: { type: 'manual' }
+    triggers: [],
+    actions: []
   }
 
   localTransitions.value.push(newTransition)
   emit('update-transitions', localTransitions.value)
 
-  // 重置连接状态
-  connectSource.value = null
-  tempConnection.value = ''
-  connectMode.value = false
-
   ElMessage.success('转换规则已创建')
+}
+
+const handleTransitionMouseEnter = (transitionPath, event) => {
+  hoveredTransition.value = transitionPath
+}
+
+const handleTransitionMouseLeave = () => {
+  hoveredTransition.value = null
+}
+
+const editTransition = (transition) => {
+  selectedTransition.value = transition
+  selectedStatus.value = null
+}
+
+const deleteTransitionConfirm = async (transition) => {
+  try {
+    await ElMessageBox.confirm(
+        `确定要删除转换规则"${transition.name}"吗？`,
+        '删除确认',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning',
+        }
+    )
+    deleteTransition(transition.id)
+  } catch {
+    // 用户取消删除
+  }
 }
 
 const addStatus = () => {
@@ -381,9 +692,13 @@ const editStatus = (status) => {
 const deleteStatus = async (status) => {
   try {
     await ElMessageBox.confirm(
-        `确定要删除状态"${status.label}"吗？相关的转换规则也会被删除。`,
-        '确认删除',
-        { type: 'warning' }
+        `确定要删除状态"${status.label}"吗？这将同时删除相关的所有转换规则。`,
+        '删除确认',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning',
+        }
     )
 
     // 删除状态
@@ -392,18 +707,17 @@ const deleteStatus = async (status) => {
       localStatuses.value.splice(statusIndex, 1)
     }
 
-    // 删除相关转换
+    // 删除相关的转换规则
     localTransitions.value = localTransitions.value.filter(t =>
         t.fromStatus !== status.key && t.toStatus !== status.key
     )
 
-    // 清除选择
+    emit('update-statuses', localStatuses.value)
+    emit('update-transitions', localTransitions.value)
+
     if (selectedStatus.value?.key === status.key) {
       selectedStatus.value = null
     }
-
-    emit('update-statuses', localStatuses.value)
-    emit('update-transitions', localTransitions.value)
 
     ElMessage.success('状态已删除')
   } catch {
@@ -412,23 +726,22 @@ const deleteStatus = async (status) => {
 }
 
 const saveStatus = () => {
-  // 验证
   if (!statusForm.value.label.trim()) {
-    ElMessage.warning('请输入状态名称')
+    ElMessage.error('请输入状态名称')
     return
   }
 
   if (!statusForm.value.key.trim()) {
-    ElMessage.warning('请输入状态键名')
+    ElMessage.error('请输入状态键名')
     return
   }
 
-  // 检查键名唯一性
-  const existingKeys = localStatuses.value
-      .filter(s => s.key !== editingStatus.value?.key)
-      .map(s => s.key)
+  // 检查键名是否重复
+  const existingStatus = localStatuses.value.find(s =>
+      s.key === statusForm.value.key && s.key !== editingStatus.value?.key
+  )
 
-  if (existingKeys.includes(statusForm.value.key)) {
+  if (existingStatus) {
     ElMessage.error('状态键名已存在')
     return
   }
@@ -438,29 +751,15 @@ const saveStatus = () => {
     const index = localStatuses.value.findIndex(s => s.key === editingStatus.value.key)
     if (index > -1) {
       localStatuses.value[index] = { ...statusForm.value }
-
-      // 更新相关转换的名称
-      localTransitions.value.forEach(t => {
-        if (t.fromStatus === statusForm.value.key || t.toStatus === statusForm.value.key) {
-          const fromStatus = localStatuses.value.find(s => s.key === t.fromStatus)
-          const toStatus = localStatuses.value.find(s => s.key === t.toStatus)
-          if (fromStatus && toStatus) {
-            t.name = `${fromStatus.label} → ${toStatus.label}`
-          }
-        }
-      })
     }
   } else {
-    // 添加新状态
-    localStatuses.value.push({ ...statusForm.value, order: localStatuses.value.length + 1 })
+    // 创建新状态
+    localStatuses.value.push({ ...statusForm.value })
   }
 
   emit('update-statuses', localStatuses.value)
-  if (localTransitions.value.length > 0) {
-    emit('update-transitions', localTransitions.value)
-  }
-
   showStatusDialog.value = false
+
   ElMessage.success(editingStatus.value ? '状态已更新' : '状态已创建')
 }
 
@@ -493,17 +792,10 @@ const deleteTransition = (transitionId) => {
   }
 }
 
-const toggleConnectMode = () => {
-  connectMode.value = !connectMode.value
-  connectSource.value = null
-  tempConnection.value = ''
-  clearSelection()
-}
-
 const autoLayout = () => {
-  // 简单的自动布局算法
+  // 改进的自动布局算法
   const cols = Math.ceil(Math.sqrt(localStatuses.value.length))
-  const spacing = { x: 150, y: 100 }
+  const spacing = { x: 150, y: 120 }
   const startPos = { x: 50, y: 50 }
 
   localStatuses.value.forEach((status, index) => {
@@ -580,8 +872,7 @@ const handleStatusKeyInput = (value) => {
       linear-gradient(90deg, transparent 24px, #f0f0f0 25px, #f0f0f0 26px, transparent 27px);
   background-size: 25px 25px;
   background-position: 0 0, 0 0, 0 0;
-  cursor: crosshair;
-  overflow: hidden;
+  cursor: default;
 }
 
 .connections-svg {
@@ -592,45 +883,112 @@ const handleStatusKeyInput = (value) => {
   z-index: 1;
 }
 
+.transition-group {
+  pointer-events: all;
+}
+
 .transition-path {
+  fill: none;
   stroke: #909399;
   stroke-width: 2;
-  fill: none;
   cursor: pointer;
-  pointer-events: all;
   transition: all 0.2s;
 }
 
-.transition-path:hover,
+.transition-path:hover {
+  stroke: #409eff;
+  stroke-width: 3;
+}
+
 .transition-path.selected {
   stroke: #409eff;
   stroke-width: 3;
 }
 
+.arrow-drag-area {
+  cursor: grab;
+  transition: all 0.2s;
+}
+
+.arrow-drag-area:hover {
+  fill: rgba(64, 158, 255, 0.3);
+}
+
 .temp-connection {
   pointer-events: none;
+  opacity: 0.8;
+}
+
+.target-highlight {
+  position: absolute;
+  border: 3px solid #67c23a;
+  border-radius: 10px;
+  background: rgba(103, 194, 58, 0.1);
+  pointer-events: none;
+  z-index: 5;
+  animation: highlight-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes highlight-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+.transition-actions {
+  pointer-events: all;
+}
+
+.action-background {
+  transition: all 0.2s;
+}
+
+.action-background:hover {
+  fill: #f5f7fa;
+}
+
+.action-button {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-button:hover {
+  transform: scale(1.1);
+}
+
+.edit-btn:hover + path {
+  fill: #66b1ff;
+}
+
+.delete-btn:hover + path {
+  stroke: #f78989;
 }
 
 .status-panel,
 .transition-panel {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 280px;
+  top: 20px;
+  right: 20px;
+  width: 300px;
   background: white;
   border: 1px solid #e4e7ed;
   border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 20;
 }
 
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 16px 20px;
   border-bottom: 1px solid #e4e7ed;
-  background: #f8f9fa;
+  background: #fafbfc;
 }
 
 .panel-header h6 {
@@ -641,27 +999,8 @@ const handleStatusKeyInput = (value) => {
 }
 
 .panel-content {
-  padding: 16px;
+  padding: 20px;
   max-height: 400px;
   overflow-y: auto;
-}
-
-/* 连接模式下的样式 */
-.machine-canvas.connecting {
-  cursor: crosshair;
-}
-
-/* 响应式调整 */
-@media (max-width: 1024px) {
-  .status-panel,
-  .transition-panel {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 90%;
-    max-width: 400px;
-    z-index: 1000;
-  }
 }
 </style>

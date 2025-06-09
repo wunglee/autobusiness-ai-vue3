@@ -5,8 +5,7 @@
         `type-${status.type}`,
         {
           selected: selected,
-          connecting: connecting,
-          'connect-source': connectSource?.key === status.key
+          'dragging': isDragging
         }
       ]"
       :style="nodeStyle"
@@ -28,35 +27,48 @@
       {{ status.type === 'initial' ? '初始' : '最终' }}
     </div>
 
-    <!-- 连接点 -->
-    <div
-        v-if="connecting"
-        class="connection-points"
-    >
-      <div class="connect-point left" @click.stop="handleConnect"></div>
-      <div class="connect-point right" @click.stop="handleConnect"></div>
-      <div class="connect-point top" @click.stop="handleConnect"></div>
-      <div class="connect-point bottom" @click.stop="handleConnect"></div>
-    </div>
-
-    <!-- 操作按钮 -->
-    <div v-if="selected && !connecting" class="node-actions">
-      <el-button type="text" size="small" :icon="Edit" @click.stop="handleEdit" />
+    <!-- 点击后显示的悬浮操作按钮 -->
+    <div v-if="selected" class="floating-actions">
       <el-button
-          type="text"
+          type="primary"
+          size="small"
+          :icon="Edit"
+          circle
+          @click.stop="handleEdit"
+          title="编辑状态"
+      />
+      <el-button
+          type="danger"
           size="small"
           :icon="Delete"
+          circle
           @click.stop="handleDelete"
           :disabled="status.type === 'initial' && isOnlyInitial"
+          title="删除状态"
+      />
+      <el-button
+          type="success"
+          size="small"
+          :icon="Connection"
+          circle
+          @mousedown.stop="handleStartConnect"
+          title="连接到其他状态"
       />
     </div>
+
+    <!-- 拖拽时的虚框 -->
+    <div
+        v-if="isDragging"
+        class="drag-ghost"
+        :style="dragGhostStyle"
+    ></div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { VideoPause, VideoPlay, Operation, Edit, Delete } from '@element-plus/icons-vue'
+import { VideoPause, VideoPlay, Operation, Edit, Delete, Connection } from '@element-plus/icons-vue'
 
 // Props
 const props = defineProps({
@@ -68,21 +80,19 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  connecting: {
-    type: Boolean,
-    default: false
-  },
-  connectSource: {
-    type: Object,
-    default: null
+  allStatuses: {
+    type: Array,
+    default: () => []
   }
 })
 
 // Emits
-const emit = defineEmits(['select', 'move', 'connect', 'edit', 'delete'])
+const emit = defineEmits(['select', 'move', 'edit', 'delete', 'start-connect'])
 
 // 响应式数据
 const isDragging = ref(false)
+const dragStartPos = ref({ x: 0, y: 0 })
+const dragCurrentPos = ref({ x: 0, y: 0 })
 const dragOffset = ref({ x: 0, y: 0 })
 
 // 计算样式
@@ -90,27 +100,41 @@ const nodeStyle = computed(() => ({
   left: `${props.status.position.x}px`,
   top: `${props.status.position.y}px`,
   backgroundColor: props.status.color || '#409eff',
-  borderColor: props.selected ? '#409eff' : 'transparent'
+  borderColor: props.selected ? '#409eff' : 'transparent',
+  cursor: isDragging.value ? 'grabbing' : 'grab'
+}))
+
+const dragGhostStyle = computed(() => ({
+  left: `${dragCurrentPos.value.x}px`,
+  top: `${dragCurrentPos.value.y}px`,
+  backgroundColor: props.status.color || '#409eff'
 }))
 
 // 检查是否是唯一的初始状态
 const isOnlyInitial = computed(() => {
-  // 这里应该从父组件传入所有状态来判断
-  return props.status.type === 'initial'
+  if (props.status.type !== 'initial') return false
+  return props.allStatuses.filter(s => s.type === 'initial').length === 1
 })
 
 // 方法
 const handleMouseDown = (event) => {
-  if (props.connecting) return
+  // 如果点击的是操作按钮，不处理拖拽
+  if (event.target.closest('.floating-actions')) return
 
   event.preventDefault()
   event.stopPropagation()
 
+  // 开始拖拽
   isDragging.value = true
+
+  // 记录拖拽开始位置
+  dragStartPos.value = { ...props.status.position }
+  dragCurrentPos.value = { ...props.status.position }
 
   const nodeRect = event.currentTarget.getBoundingClientRect()
   const parentRect = event.currentTarget.parentElement.getBoundingClientRect()
 
+  // 计算鼠标在节点内的偏移
   dragOffset.value = {
     x: event.clientX - nodeRect.left,
     y: event.clientY - nodeRect.top
@@ -120,6 +144,8 @@ const handleMouseDown = (event) => {
     if (!isDragging.value) return
 
     const parentRect = event.currentTarget.parentElement.getBoundingClientRect()
+
+    // 计算新的位置
     const newPosition = {
       x: Math.max(0, Math.min(
           e.clientX - parentRect.left - dragOffset.value.x,
@@ -131,11 +157,22 @@ const handleMouseDown = (event) => {
       ))
     }
 
-    emit('move', props.status, newPosition)
+    // 更新虚框位置
+    dragCurrentPos.value = newPosition
   }
 
   const handleMouseUp = () => {
+    if (!isDragging.value) return
+
+    // 检查并处理位置冲突
+    const finalPosition = checkAndResolveConflicts(dragCurrentPos.value)
+
+    // 更新实际位置
+    emit('move', props.status, finalPosition)
+
+    // 结束拖拽
     isDragging.value = false
+
     document.removeEventListener('mousemove', handleMouseMove)
     document.removeEventListener('mouseup', handleMouseUp)
   }
@@ -144,19 +181,48 @@ const handleMouseDown = (event) => {
   document.addEventListener('mouseup', handleMouseUp)
 }
 
+const checkAndResolveConflicts = (newPosition) => {
+  // 检查与其他状态节点的冲突
+  const conflicts = props.allStatuses.filter(s => {
+    if (s.key === props.status.key) return false
+
+    const distance = Math.sqrt(
+        Math.pow(s.position.x - newPosition.x, 2) +
+        Math.pow(s.position.y - newPosition.y, 2)
+    )
+
+    return distance < 120 // 如果距离小于120像素则认为冲突
+  })
+
+  if (conflicts.length > 0) {
+    // 自动调整冲突节点的位置
+    conflicts.forEach((conflict, index) => {
+      const angle = (index * 90) * (Math.PI / 180) // 每个冲突节点偏移不同角度
+      const offsetDistance = 150
+
+      conflict.position.x = newPosition.x + Math.cos(angle) * offsetDistance
+      conflict.position.y = newPosition.y + Math.sin(angle) * offsetDistance
+
+      // 确保不超出边界
+      conflict.position.x = Math.max(0, Math.min(conflict.position.x, 800))
+      conflict.position.y = Math.max(0, Math.min(conflict.position.y, 600))
+    })
+
+    // 通知父组件更新冲突节点
+    emit('resolve-conflicts', conflicts)
+
+    ElMessage.success('已自动调整重叠节点位置')
+  }
+
+  return newPosition
+}
+
 const handleClick = (event) => {
   event.stopPropagation()
 
-  if (props.connecting) {
-    handleConnect()
-  } else {
+  // 如果不是在拖拽，则选中状态
+  if (!isDragging.value) {
     emit('select', props.status)
-  }
-}
-
-const handleConnect = () => {
-  if (props.connecting) {
-    emit('connect', props.status)
   }
 }
 
@@ -172,6 +238,14 @@ const handleDelete = () => {
 
   emit('delete', props.status)
 }
+
+const handleStartConnect = (event) => {
+  event.preventDefault()
+  event.stopPropagation()
+
+  // 开始连接模式
+  emit('start-connect', props.status, event)
+}
 </script>
 
 <style scoped>
@@ -182,7 +256,6 @@ const handleDelete = () => {
   border-radius: 8px;
   border: 2px solid transparent;
   color: white;
-  cursor: pointer;
   user-select: none;
   display: flex;
   flex-direction: column;
@@ -205,13 +278,9 @@ const handleDelete = () => {
   box-shadow: 0 0 0 2px #409eff, 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.state-node.connecting {
-  cursor: crosshair;
-}
-
-.state-node.connect-source {
-  border-color: #67c23a;
-  box-shadow: 0 0 0 2px #67c23a, 0 4px 12px rgba(0, 0, 0, 0.2);
+.state-node.dragging {
+  z-index: 10;
+  opacity: 0.7;
 }
 
 .state-icon {
@@ -245,85 +314,64 @@ const handleDelete = () => {
   background: #67c23a;
 }
 
-.connection-points {
+.floating-actions {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-}
-
-.connect-point {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  background: #409eff;
-  border: 2px solid white;
-  border-radius: 50%;
-  cursor: pointer;
-  pointer-events: all;
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.connecting .connect-point {
-  opacity: 1;
-}
-
-.connect-point.left {
-  left: 0;
-  top: 50%;
-}
-
-.connect-point.right {
-  right: 0;
-  top: 50%;
-  transform: translate(50%, -50%);
-}
-
-.connect-point.top {
+  top: -45px;
   left: 50%;
-  top: 0;
-}
-
-.connect-point.bottom {
-  left: 50%;
-  bottom: 0;
-  transform: translate(-50%, 50%);
-}
-
-.connect-point:hover {
-  background: #67c23a;
-  transform: translate(-50%, -50%) scale(1.2);
-}
-
-.node-actions {
-  position: absolute;
-  top: -30px;
-  right: 0;
+  transform: translateX(-50%);
   display: flex;
-  gap: 4px;
+  gap: 6px;
   background: white;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 2px;
-  opacity: 0;
-  transition: opacity 0.2s;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 6px;
+  z-index: 10;
+  animation: fadeInUp 0.3s ease;
 }
 
-.state-node.selected .node-actions {
-  opacity: 1;
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
-.node-actions .el-button {
-  padding: 4px;
-  color: #606266;
+.floating-actions .el-button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  font-size: 14px;
+  transition: all 0.2s;
 }
 
-.node-actions .el-button:hover {
-  color: #409eff;
+.floating-actions .el-button:hover {
+  transform: scale(1.1);
+}
+
+.drag-ghost {
+  position: absolute;
+  width: 100px;
+  height: 60px;
+  border: 2px dashed #409eff;
+  border-radius: 8px;
+  background: rgba(64, 158, 255, 0.2);
+  pointer-events: none;
+  z-index: 1;
+  animation: ghostPulse 1s ease-in-out infinite;
+}
+
+@keyframes ghostPulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 
 /* 不同类型状态的样式变化 */
@@ -333,12 +381,6 @@ const handleDelete = () => {
 
 .type-final {
   border-width: 3px;
-}
-
-/* 拖拽时的样式 */
-.state-node:active {
-  cursor: grabbing;
-  z-index: 10;
 }
 
 /* 禁用状态的样式 */

@@ -1,333 +1,687 @@
 <template>
-  <div class="task-board">
-    <div class="task-board-header">
-      <div class="header-left">
-        <h2>任务看板</h2>
-        <p>项目任务管理和进度跟踪</p>
+  <div class="transition-editor">
+    <div class="editor-header">
+      <h6>{{ transition.name }}</h6>
+      <el-tag size="small" type="info">
+        {{ fromStatus?.label }} → {{ toStatus?.label }}
+      </el-tag>
+    </div>
+
+    <div class="editor-content">
+      <!-- 基本信息 -->
+      <div class="form-section">
+        <h6 class="section-title">基本信息</h6>
+        <el-form :model="localTransition" label-width="80px" size="small">
+          <el-form-item label="转换名称">
+            <el-input
+                v-model="localTransition.name"
+                placeholder="请输入转换名称"
+                @input="handleChange"
+            />
+          </el-form-item>
+          <el-form-item label="描述">
+            <el-input
+                v-model="localTransition.description"
+                type="textarea"
+                :rows="2"
+                placeholder="请描述此转换的用途"
+                @input="handleChange"
+            />
+          </el-form-item>
+        </el-form>
       </div>
-      <div class="header-right">
-        <el-button type="primary" :icon="Setting" @click="openTaskTypeConfig">
-          配置任务类型
-        </el-button>
+
+      <!-- 触发器实例配置 -->
+      <div class="form-section">
+        <div class="section-header">
+          <h6 class="section-title">触发器实例</h6>
+          <p class="section-desc">配置多个触发器实例，每个实例基于前一个状态的属性值进行条件判断</p>
+          <el-button
+              size="small"
+              type="primary"
+              :icon="Plus"
+              @click="addTriggerInstance"
+          >
+            添加实例
+          </el-button>
+        </div>
+
+        <div v-if="localTransition.triggerInstances && localTransition.triggerInstances.length > 0" class="trigger-instances">
+          <div
+              v-for="(instance, index) in localTransition.triggerInstances"
+              :key="index"
+              class="trigger-instance"
+          >
+            <div class="instance-header">
+              <div class="instance-info">
+                <el-tag :type="getTriggerTypeColor(instance.triggerType)" size="small">
+                  {{ getTriggerTypeName(instance.triggerType) }}
+                </el-tag>
+                <span class="instance-name">{{ instance.name || `触发器实例 ${index + 1}` }}</span>
+                <el-switch
+                    v-model="instance.enabled"
+                    size="small"
+                    active-text="启用"
+                    inactive-text="禁用"
+                    @change="handleChange"
+                />
+              </div>
+              <div class="instance-actions">
+                <el-button
+                    type="text"
+                    size="small"
+                    :icon="Edit"
+                    @click="editTriggerInstance(index)"
+                />
+                <el-button
+                    type="text"
+                    size="small"
+                    :icon="Delete"
+                    @click="deleteTriggerInstance(index)"
+                />
+              </div>
+            </div>
+
+            <div class="instance-details">
+              <div class="trigger-conditions">
+                <h6>触发条件 (基于状态"{{ fromStatus?.label }}"的属性)</h6>
+                <div v-if="instance.conditions && instance.conditions.length > 0" class="conditions-list">
+                  <div
+                      v-for="(condition, condIndex) in instance.conditions"
+                      :key="condIndex"
+                      class="condition-item"
+                  >
+                    <el-tag size="small" effect="plain">
+                      {{ getAttributeLabel(condition.attribute) }}
+                      {{ getOperatorSymbol(condition.operator) }}
+                      "{{ condition.value }}"
+                    </el-tag>
+                    <el-tag
+                        v-if="condIndex < instance.conditions.length - 1"
+                        size="small"
+                        type="info"
+                        effect="plain"
+                    >
+                      {{ instance.logicOperator || 'AND' }}
+                    </el-tag>
+                  </div>
+                </div>
+                <div v-else class="no-conditions">
+                  <el-text type="info" size="small">无触发条件 - 自动触发</el-text>
+                </div>
+              </div>
+
+              <div class="execution-config">
+                <el-form label-width="80px" size="small">
+                  <el-form-item label="执行时机">
+                    <el-select v-model="instance.executionTiming" @change="handleChange">
+                      <el-option label="立即执行" value="immediate" />
+                      <el-option label="延迟执行" value="delayed" />
+                      <el-option label="定时执行" value="scheduled" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item
+                      v-if="instance.executionTiming === 'delayed'"
+                      label="延迟时间"
+                  >
+                    <el-input-number
+                        v-model="instance.delayMinutes"
+                        :min="1"
+                        :max="1440"
+                        @change="handleChange"
+                    />
+                    <span style="margin-left: 8px;">分钟</span>
+                  </el-form-item>
+                </el-form>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="empty-instances">
+          <el-empty
+              description="暂无触发器实例"
+              :image-size="60"
+          >
+            <el-button type="primary" :icon="Plus" @click="addTriggerInstance">
+              添加第一个触发器实例
+            </el-button>
+          </el-empty>
+        </div>
       </div>
     </div>
 
-    <div class="task-board-content">
-      <div v-if="taskTypes.length === 0" class="board-placeholder">
-        <el-icon size="80" class="placeholder-icon">
-          <Setting />
-        </el-icon>
-        <h3>开始配置任务类型</h3>
-        <p>在开始使用任务看板之前，请先配置任务类型来定义您的工作流程</p>
-
-        <div class="setup-steps">
-          <div class="step-item">
-            <div class="step-number">1</div>
-            <div class="step-content">
-              <h4>定义任务类型</h4>
-              <p>创建不同类型的任务，如需求、开发、测试等</p>
-            </div>
-          </div>
-          <div class="step-item">
-            <div class="step-number">2</div>
-            <div class="step-content">
-              <h4>设计状态流程</h4>
-              <p>为每种任务类型设计状态转换流程</p>
-            </div>
-          </div>
-          <div class="step-item">
-            <div class="step-number">3</div>
-            <div class="step-content">
-              <h4>配置属性字段</h4>
-              <p>定义任务所需的自定义属性字段</p>
-            </div>
-          </div>
-        </div>
-
-        <el-button type="primary" size="large" :icon="Plus" @click="openTaskTypeConfig">
-          开始配置
-        </el-button>
-      </div>
-
-      <div v-else class="board-workspace">
-        <div class="workspace-sidebar">
-          <div class="sidebar-header">
-            <h3>任务列表</h3>
-            <el-button type="text" :icon="Setting" @click="openTaskTypeConfig" title="配置任务类型" />
-          </div>
-          <div class="task-tree">
-            <!-- 这里将来会显示任务树 -->
-            <div class="empty-tasks">
-              <el-icon><DocumentAdd /></el-icon>
-              <p>暂无任务</p>
-              <el-button type="primary" size="small" :icon="Plus">创建任务</el-button>
-            </div>
-          </div>
-        </div>
-
-        <div class="workspace-main">
-          <div class="main-placeholder">
-            <el-icon size="64"><Calendar /></el-icon>
-            <h3>选择任务查看详情</h3>
-            <p>从左侧任务列表中选择一个任务来查看其详细信息和子任务状态</p>
-          </div>
-        </div>
-      </div>
+    <div class="editor-footer">
+      <el-button @click="$emit('delete', transition.id)" type="danger" plain>
+        删除转换
+      </el-button>
+      <el-button type="primary" @click="saveTransition">
+        保存更改
+      </el-button>
     </div>
 
-    <!-- 任务类型配置对话框 -->
-    <TaskTypeConfig
-        v-model="showTaskTypeConfig"
-        @save="handleTaskTypesSaved"
-    />
+    <!-- 触发器实例编辑对话框 -->
+    <el-dialog
+        v-model="showInstanceDialog"
+        :title="editingInstanceIndex !== null ? '编辑触发器实例' : '添加触发器实例'"
+        width="700px"
+    >
+      <div class="instance-editor">
+        <el-form :model="instanceForm" label-width="100px">
+          <el-form-item label="实例名称" required>
+            <el-input v-model="instanceForm.name" placeholder="请输入触发器实例名称" />
+          </el-form-item>
+
+          <el-form-item label="触发器类型" required>
+            <el-select v-model="instanceForm.triggerType" placeholder="选择触发器类型">
+              <el-option label="条件触发" value="condition" />
+              <el-option label="时间触发" value="time" />
+              <el-option label="事件触发" value="event" />
+              <el-option label="手动触发" value="manual" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="是否启用">
+            <el-switch v-model="instanceForm.enabled" />
+          </el-form-item>
+
+          <el-form-item label="条件逻辑">
+            <el-radio-group v-model="instanceForm.logicOperator">
+              <el-radio label="AND">所有条件都满足 (AND)</el-radio>
+              <el-radio label="OR">任一条件满足 (OR)</el-radio>
+            </el-radio-group>
+          </el-form-item>
+
+          <el-form-item label="触发条件">
+            <div class="conditions-builder">
+              <el-alert
+                  title="提示"
+                  description="条件基于前一个状态的属性值进行判断，可以添加多个条件进行组合"
+                  type="info"
+                  :closable="false"
+                  style="margin-bottom: 16px;"
+              />
+
+              <div
+                  v-for="(condition, index) in instanceForm.conditions"
+                  :key="index"
+                  class="condition-builder-item"
+              >
+                <el-select
+                    v-model="condition.attribute"
+                    placeholder="选择属性"
+                    style="width: 140px"
+                >
+                  <el-option
+                      v-for="attr in fromStateAttributes"
+                      :key="attr.key"
+                      :label="attr.label"
+                      :value="attr.key"
+                  />
+                </el-select>
+
+                <el-select
+                    v-model="condition.operator"
+                    placeholder="运算符"
+                    style="width: 100px"
+                >
+                  <el-option label="等于" value="eq" />
+                  <el-option label="不等于" value="ne" />
+                  <el-option label="大于" value="gt" />
+                  <el-option label="小于" value="lt" />
+                  <el-option label="大于等于" value="gte" />
+                  <el-option label="小于等于" value="lte" />
+                  <el-option label="包含" value="contains" />
+                  <el-option label="不包含" value="not_contains" />
+                  <el-option label="为空" value="empty" />
+                  <el-option label="不为空" value="not_empty" />
+                </el-select>
+
+                <el-input
+                    v-model="condition.value"
+                    placeholder="预期值"
+                    style="flex: 1"
+                />
+
+                <el-button
+                    type="text"
+                    :icon="Delete"
+                    @click="removeCondition(index)"
+                />
+              </div>
+
+              <el-button
+                  type="text"
+                  :icon="Plus"
+                  @click="addCondition"
+              >
+                添加条件
+              </el-button>
+            </div>
+          </el-form-item>
+
+          <el-form-item label="执行时机">
+            <el-select v-model="instanceForm.executionTiming">
+              <el-option label="立即执行" value="immediate" />
+              <el-option label="延迟执行" value="delayed" />
+              <el-option label="定时执行" value="scheduled" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item
+              v-if="instanceForm.executionTiming === 'delayed'"
+              label="延迟时间"
+          >
+            <el-input-number
+                v-model="instanceForm.delayMinutes"
+                :min="1"
+                :max="1440"
+            />
+            <span style="margin-left: 8px;">分钟</span>
+          </el-form-item>
+
+          <el-form-item label="实例描述">
+            <el-input
+                v-model="instanceForm.description"
+                type="textarea"
+                :rows="3"
+                placeholder="请描述触发器实例的作用和条件"
+            />
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <template #footer>
+        <el-button @click="showInstanceDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveTriggerInstance">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import {
-  Calendar,
-  Setting,
-  Plus,
-  DocumentAdd
-} from '@element-plus/icons-vue'
-import TaskTypeConfig from './TaskTypeConfig.vue'
+import { ref, computed, watch } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Edit, Delete } from '@element-plus/icons-vue'
+
+// Props
+const props = defineProps({
+  transition: {
+    type: Object,
+    required: true
+  },
+  statuses: {
+    type: Array,
+    default: () => []
+  }
+})
+
+// Emits
+const emit = defineEmits(['update', 'delete'])
 
 // 响应式数据
-const showTaskTypeConfig = ref(false)
-const taskTypes = ref([]) // 初始为空，需要用户配置
+const localTransition = ref({
+  ...props.transition,
+  triggerInstances: props.transition.triggerInstances || []
+})
+
+const showInstanceDialog = ref(false)
+const editingInstanceIndex = ref(null)
+const instanceForm = ref({
+  name: '',
+  triggerType: 'condition',
+  enabled: true,
+  logicOperator: 'AND',
+  conditions: [],
+  executionTiming: 'immediate',
+  delayMinutes: 5,
+  description: ''
+})
+
+// 计算属性
+const fromStatus = computed(() =>
+    props.statuses.find(s => s.key === props.transition.fromStatus)
+)
+
+const toStatus = computed(() =>
+    props.statuses.find(s => s.key === props.transition.toStatus)
+)
+
+// 前一个状态的属性（这里模拟常见的任务属性）
+const fromStateAttributes = computed(() => {
+  return [
+    { key: 'priority', label: '优先级' },
+    { key: 'assignee', label: '负责人' },
+    { key: 'progress', label: '进度百分比' },
+    { key: 'created_at', label: '创建时间' },
+    { key: 'updated_at', label: '更新时间' },
+    { key: 'due_date', label: '截止日期' },
+    { key: 'tags', label: '标签' },
+    { key: 'category', label: '分类' },
+    { key: 'estimated_hours', label: '预估工时' },
+    { key: 'actual_hours', label: '实际工时' },
+    { key: 'completion_rate', label: '完成率' },
+    { key: 'quality_score', label: '质量评分' }
+  ]
+})
+
+// 监听props变化
+watch(() => props.transition, (newTransition) => {
+  localTransition.value = {
+    ...newTransition,
+    triggerInstances: newTransition.triggerInstances || []
+  }
+}, { deep: true })
 
 // 方法
-const openTaskTypeConfig = () => {
-  showTaskTypeConfig.value = true
+const handleChange = () => {
+  emit('update', localTransition.value)
 }
 
-const handleTaskTypesSaved = (types) => {
-  taskTypes.value = types
-  ElMessage.success(`已保存 ${types.length} 个任务类型配置`)
+const getTriggerTypeName = (type) => {
+  const typeNames = {
+    condition: '条件触发',
+    time: '时间触发',
+    event: '事件触发',
+    manual: '手动触发'
+  }
+  return typeNames[type] || type
+}
+
+const getTriggerTypeColor = (type) => {
+  const typeColors = {
+    condition: 'warning',
+    time: 'success',
+    event: 'primary',
+    manual: 'info'
+  }
+  return typeColors[type] || 'info'
+}
+
+const getAttributeLabel = (attributeKey) => {
+  const attribute = fromStateAttributes.value.find(attr => attr.key === attributeKey)
+  return attribute ? attribute.label : attributeKey
+}
+
+const getOperatorSymbol = (operator) => {
+  const symbols = {
+    eq: '等于',
+    ne: '不等于',
+    gt: '大于',
+    lt: '小于',
+    gte: '大于等于',
+    lte: '小于等于',
+    contains: '包含',
+    not_contains: '不包含',
+    empty: '为空',
+    not_empty: '不为空'
+  }
+  return symbols[operator] || operator
+}
+
+const addTriggerInstance = () => {
+  editingInstanceIndex.value = null
+  instanceForm.value = {
+    name: '',
+    triggerType: 'condition',
+    enabled: true,
+    logicOperator: 'AND',
+    conditions: [],
+    executionTiming: 'immediate',
+    delayMinutes: 5,
+    description: ''
+  }
+  showInstanceDialog.value = true
+}
+
+const editTriggerInstance = (index) => {
+  editingInstanceIndex.value = index
+  instanceForm.value = { ...localTransition.value.triggerInstances[index] }
+  // 确保条件数组存在
+  if (!instanceForm.value.conditions) {
+    instanceForm.value.conditions = []
+  }
+  showInstanceDialog.value = true
+}
+
+const deleteTriggerInstance = async (index) => {
+  try {
+    await ElMessageBox.confirm(
+        '确定要删除这个触发器实例吗？',
+        '删除确认',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning',
+        }
+    )
+
+    localTransition.value.triggerInstances.splice(index, 1)
+    handleChange()
+    ElMessage.success('触发器实例已删除')
+  } catch {
+    // 用户取消删除
+  }
+}
+
+const saveTriggerInstance = () => {
+  if (!instanceForm.value.name.trim()) {
+    ElMessage.error('请输入触发器实例名称')
+    return
+  }
+
+  if (editingInstanceIndex.value !== null) {
+    // 编辑现有实例
+    localTransition.value.triggerInstances[editingInstanceIndex.value] = { ...instanceForm.value }
+  } else {
+    // 添加新实例
+    localTransition.value.triggerInstances.push({ ...instanceForm.value })
+  }
+
+  handleChange()
+  showInstanceDialog.value = false
+  ElMessage.success(editingInstanceIndex.value !== null ? '触发器实例已更新' : '触发器实例已添加')
+}
+
+const addCondition = () => {
+  instanceForm.value.conditions.push({
+    attribute: '',
+    operator: 'eq',
+    value: ''
+  })
+}
+
+const removeCondition = (index) => {
+  instanceForm.value.conditions.splice(index, 1)
+}
+
+const saveTransition = () => {
+  emit('update', localTransition.value)
+  ElMessage.success('转换规则已保存')
 }
 </script>
 
 <style scoped>
-.task-board {
-  height: 100%;
+.transition-editor {
   display: flex;
   flex-direction: column;
-  background: #fafbfc;
+  height: 100%;
 }
 
-.task-board-header {
+.editor-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px 32px;
-  background: white;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #e4e7ed;
-  flex-shrink: 0;
 }
 
-.header-left h2 {
-  margin: 0 0 4px 0;
-  font-size: 24px;
-  color: #303133;
-  font-weight: 600;
-}
-
-.header-left p {
+.editor-header h6 {
   margin: 0;
-  color: #909399;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
 }
 
-.task-board-content {
+.editor-content {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
-.board-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  padding: 40px;
-  text-align: center;
-}
-
-.placeholder-icon {
-  color: #d3d7de;
+.form-section {
   margin-bottom: 24px;
 }
 
-.board-placeholder h3 {
-  margin: 0 0 16px 0;
-  font-size: 20px;
-  color: #606266;
-  font-weight: 500;
+.section-header {
+  margin-bottom: 12px;
 }
 
-.board-placeholder p {
-  margin: 0 0 32px 0;
-  color: #909399;
-  line-height: 1.6;
+.section-title {
+  margin: 0 0 4px 0;
   font-size: 14px;
-  max-width: 500px;
-}
-
-.setup-steps {
-  display: flex;
-  gap: 24px;
-  margin-bottom: 32px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.step-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  max-width: 200px;
-  text-align: left;
-}
-
-.step-number {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   font-weight: 600;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.step-content h4 {
-  margin: 0 0 8px 0;
-  font-size: 16px;
   color: #303133;
-  font-weight: 500;
 }
 
-.step-content p {
-  margin: 0;
-  font-size: 14px;
+.section-desc {
+  margin: 0 0 12px 0;
+  font-size: 12px;
   color: #909399;
   line-height: 1.4;
 }
 
-.board-workspace {
-  display: flex;
-  height: 100%;
+.trigger-instances {
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
-.workspace-sidebar {
-  width: 300px;
-  border-right: 1px solid #e4e7ed;
+.trigger-instance {
+  padding: 16px;
+  border-bottom: 1px solid #f0f0f0;
   background: white;
-  display: flex;
-  flex-direction: column;
 }
 
-.sidebar-header {
+.trigger-instance:last-child {
+  border-bottom: none;
+}
+
+.instance-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #e4e7ed;
+  margin-bottom: 12px;
 }
 
-.sidebar-header h3 {
-  margin: 0;
-  font-size: 16px;
-  color: #303133;
-  font-weight: 600;
-}
-
-.task-tree {
-  flex: 1;
-  padding: 16px;
-  overflow-y: auto;
-}
-
-.empty-tasks {
+.instance-info {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 200px;
-  color: #909399;
-  text-align: center;
+  gap: 8px;
 }
 
-.empty-tasks p {
-  margin: 12px 0 16px 0;
+.instance-name {
   font-size: 14px;
+  font-weight: 500;
+  color: #303133;
 }
 
-.workspace-main {
-  flex: 1;
+.instance-actions {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: white;
+  gap: 4px;
 }
 
-.main-placeholder {
-  text-align: center;
-  color: #909399;
+.instance-details {
+  background: #fafbfc;
+  border-radius: 4px;
+  padding: 12px;
+  margin-top: 8px;
 }
 
-.main-placeholder h3 {
-  margin: 16px 0 8px 0;
-  font-size: 18px;
+.trigger-conditions h6 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 500;
   color: #606266;
 }
 
-.main-placeholder p {
-  margin: 0;
-  font-size: 14px;
-  max-width: 300px;
-  line-height: 1.5;
+.conditions-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
-@media (max-width: 768px) {
-  .task-board-header {
-    flex-direction: column;
-    gap: 16px;
-    align-items: stretch;
-    padding: 16px;
-  }
+.condition-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 
-  .header-left {
-    text-align: center;
-  }
+.no-conditions {
+  color: #909399;
+  font-size: 12px;
+  font-style: italic;
+  margin-bottom: 12px;
+}
 
-  .task-board-content {
-    padding: 20px;
-  }
+.execution-config {
+  border-top: 1px solid #e4e7ed;
+  padding-top: 12px;
+}
 
-  .setup-steps {
-    flex-direction: column;
-    gap: 16px;
-  }
+.empty-instances {
+  padding: 40px;
+  text-align: center;
+}
 
-  .step-item {
-    max-width: none;
-  }
+.editor-footer {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 16px;
+  border-top: 1px solid #e4e7ed;
+  margin-top: 20px;
+}
 
-  .board-workspace {
-    flex-direction: column;
-  }
+.instance-editor {
+  padding: 0 4px;
+}
 
-  .workspace-sidebar {
-    width: 100%;
-    max-height: 300px;
-    border-right: none;
-    border-bottom: 1px solid #e4e7ed;
-  }
+.conditions-builder {
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  padding: 12px;
+  background: #fafbfc;
+}
+
+.condition-builder-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.condition-builder-item:last-child {
+  margin-bottom: 0;
+}
+
+/* 滚动条样式 */
+.editor-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.editor-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.editor-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.editor-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 </style>

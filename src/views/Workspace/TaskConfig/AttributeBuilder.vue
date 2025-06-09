@@ -97,20 +97,24 @@
         v-model="showDialog"
         :title="isEditing ? '编辑属性' : '添加属性'"
         width="700px"
+        :close-on-click-modal="false"
+        :destroy-on-close="true"
         @close="resetForm"
     >
       <AttributeEditor
+          v-if="showDialog && currentAttribute"
+          :key="`attr-editor-${dialogKey}`"
           :attribute="currentAttribute"
           :is-editing="isEditing"
           @save="handleSaveAttribute"
-          @cancel="showDialog = false"
+          @cancel="handleCancelEdit"
       />
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, DCaret, DocumentAdd } from '@element-plus/icons-vue'
 import draggable from 'vuedraggable'
@@ -133,6 +137,7 @@ const showDialog = ref(false)
 const isEditing = ref(false)
 const editingIndex = ref(-1)
 const currentAttribute = ref(null)
+const dialogKey = ref(0)
 
 // 初始化数据并确保每个属性都有唯一标识
 const initializeAttributes = () => {
@@ -188,32 +193,101 @@ const getTypeColor = (type) => {
   return attributeTypes[type]?.color || ''
 }
 
-const showAddDialog = () => {
+// 创建完整的默认属性结构
+const createCompleteAttribute = (baseAttr = {}) => {
+  const newId = `attr-${Date.now()}-${Math.random()}`
+
+  // 确保所有必要的属性都存在
+  const attribute = {
+    id: baseAttr.id || newId,
+    key: baseAttr.key || '',
+    label: baseAttr.label || '',
+    type: baseAttr.type || 'text',
+    required: baseAttr.required || false,
+    placeholder: baseAttr.placeholder || '',
+    helpText: baseAttr.helpText || '',
+    default: baseAttr.default || '',
+    order: baseAttr.order || localAttributes.value.length + 1,
+    validation: baseAttr.validation || {},
+    config: baseAttr.config || {},
+    display: baseAttr.display || { width: 'full' }
+  }
+
+  // 根据类型设置默认配置
+  if (['select', 'multiselect', 'radio', 'checkbox'].includes(attribute.type)) {
+    if (!attribute.config.options) {
+      attribute.config.options = []
+    }
+  }
+
+  return attribute
+}
+
+// 重置所有状态
+const resetAllState = () => {
+  console.log('重置所有状态')
+  currentAttribute.value = null
   isEditing.value = false
   editingIndex.value = -1
-  const newId = `attr-${Date.now()}-${Math.random()}`
-  currentAttribute.value = {
-    id: newId,
-    key: '',
-    label: '',
-    type: 'text',
-    required: false,
-    placeholder: '',
-    helpText: '',
-    default: '',
-    order: localAttributes.value.length + 1,
-    validation: {},
-    config: {},
-    display: { width: 'full' }
-  }
-  showDialog.value = true
+  showDialog.value = false
+}
+
+const showAddDialog = () => {
+  console.log('显示添加对话框')
+
+  // 完全重置状态
+  resetAllState()
+
+  // 设置添加状态
+  isEditing.value = false
+  editingIndex.value = -1
+  currentAttribute.value = createCompleteAttribute()
+
+  console.log('创建的新属性：', currentAttribute.value)
+
+  // 使用 nextTick 确保状态完全更新
+  nextTick(() => {
+    dialogKey.value++
+    showDialog.value = true
+    console.log('添加对话框已打开，dialogKey:', dialogKey.value)
+  })
 }
 
 const editAttribute = (index) => {
+  console.log('编辑属性，索引：', index, '数据：', localAttributes.value[index])
+
+  // 完全重置状态
+  resetAllState()
+
+  // 确保索引有效
+  if (index < 0 || index >= localAttributes.value.length) {
+    console.error('编辑索引无效：', index)
+    ElMessage.error('无法编辑：属性索引无效')
+    return
+  }
+
+  const originalAttr = localAttributes.value[index]
+  if (!originalAttr) {
+    console.error('原始属性不存在')
+    ElMessage.error('无法编辑：属性数据不存在')
+    return
+  }
+
+  // 设置编辑状态
   isEditing.value = true
   editingIndex.value = index
-  currentAttribute.value = JSON.parse(JSON.stringify(localAttributes.value[index]))
-  showDialog.value = true
+
+  // 深拷贝并确保完整结构
+  currentAttribute.value = createCompleteAttribute(originalAttr)
+
+  console.log('编辑的属性：', currentAttribute.value)
+
+  // 使用 nextTick 确保状态完全更新
+  nextTick(() => {
+    dialogKey.value++
+    showDialog.value = true
+    console.log('编辑对话框已打开，dialogKey:', dialogKey.value)
+  })
 }
 
 const deleteAttribute = async (index) => {
@@ -234,6 +308,13 @@ const deleteAttribute = async (index) => {
 }
 
 const handleSaveAttribute = (attribute) => {
+  console.log('保存属性：', attribute)
+
+  if (!attribute) {
+    ElMessage.error('保存失败：属性数据为空')
+    return
+  }
+
   // 验证属性键名唯一性
   const existingKeys = localAttributes.value
       .filter((_, index) => index !== editingIndex.value)
@@ -256,17 +337,27 @@ const handleSaveAttribute = (attribute) => {
     attribute.id = attribute.key || `attr-${Date.now()}-${Math.random()}`
   }
 
-  if (isEditing.value) {
+  // 保存属性
+  if (isEditing.value && editingIndex.value >= 0) {
+    console.log('更新属性，索引：', editingIndex.value)
     localAttributes.value[editingIndex.value] = attribute
   } else {
+    console.log('添加新属性')
     localAttributes.value.push(attribute)
   }
 
   updateOrder()
   emit('update', localAttributes.value)
-  showDialog.value = false
 
-  ElMessage.success(isEditing.value ? '属性已更新' : '属性已添加')
+  // 关闭对话框并重置状态
+  const message = isEditing.value ? '属性已更新' : '属性已添加'
+  resetAllState()
+  ElMessage.success(message)
+}
+
+const handleCancelEdit = () => {
+  console.log('取消编辑')
+  resetAllState()
 }
 
 const handleOrderChange = () => {
@@ -280,10 +371,13 @@ const updateOrder = () => {
   })
 }
 
+// 对话框关闭时的处理
 const resetForm = () => {
-  currentAttribute.value = null
-  isEditing.value = false
-  editingIndex.value = -1
+  console.log('对话框关闭，重置表单')
+  // 延迟重置，确保对话框完全关闭
+  nextTick(() => {
+    resetAllState()
+  })
 }
 
 // 组件挂载时初始化

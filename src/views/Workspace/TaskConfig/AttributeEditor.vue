@@ -401,7 +401,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, DCaret } from '@element-plus/icons-vue'
 import draggable from 'vuedraggable'
@@ -426,8 +426,69 @@ const formRef = ref(null)
 const localAttribute = ref({})
 const showAdvanced = ref(false)
 
+// 计算属性
+const needsOptions = computed(() => {
+  return ['select', 'multiselect', 'radio', 'checkbox'].includes(localAttribute.value.type || '')
+})
+
+const hasValidationOptions = computed(() => {
+  return !['user_select', 'agent_select', 'status_select'].includes(localAttribute.value.type || '')
+})
+
+// 获取默认配置
+const getDefaultConfig = (type) => {
+  const configs = {
+    'select': { options: [] },
+    'multiselect': { options: [] },
+    'radio': { options: [] },
+    'checkbox': { options: [] },
+    'textarea': { rows: 3 },
+    'currency': { currency: 'CNY' },
+    'date': { format: 'YYYY-MM-DD' },
+    'datetime': { format: 'YYYY-MM-DD HH:mm:ss' },
+    'file': { accept: '', maxSize: 10, maxCount: 1 }
+  }
+  return configs[type] || {}
+}
+
+// 获取默认验证规则
+const getDefaultValidation = (type) => {
+  const validations = {
+    'text': { maxLength: 255 },
+    'textarea': { maxLength: 1000 },
+    'url': { maxLength: 500, isUrl: true },
+    'number': { min: null, max: null, precision: 0 },
+    'currency': { min: 0, max: 999999999, precision: 2 },
+    'percentage': { min: 0, max: 100, precision: 2 },
+    'file': { fileTypes: '', maxFileSize: 10 }
+  }
+  return validations[type] || {}
+}
+
 // 初始化属性数据
 const initializeAttribute = () => {
+  console.log('AttributeEditor 初始化，接收到的属性：', props.attribute)
+
+  if (!props.attribute) {
+    console.error('AttributeEditor: 没有接收到属性数据')
+    localAttribute.value = {
+      id: `attr-${Date.now()}`,
+      key: '',
+      label: '',
+      type: 'text',
+      required: false,
+      placeholder: '',
+      helpText: '',
+      default: '',
+      order: 1,
+      validation: {},
+      config: {},
+      display: { width: 'full' }
+    }
+    return
+  }
+
+  // 深拷贝传入的属性
   localAttribute.value = JSON.parse(JSON.stringify(props.attribute))
 
   // 确保必要的属性存在
@@ -442,7 +503,7 @@ const initializeAttribute = () => {
   }
 
   // 确保选项数组中每个选项都有唯一标识
-  if (localAttribute.value.config.options) {
+  if (localAttribute.value.config.options && Array.isArray(localAttribute.value.config.options)) {
     localAttribute.value.config.options = localAttribute.value.config.options.map((option, index) => ({
       ...option,
       id: option.id || option.value || `option-${Date.now()}-${index}`,
@@ -450,13 +511,26 @@ const initializeAttribute = () => {
       label: option.label || `选项 ${index + 1}`,
       color: option.color || '#409eff'
     }))
+  } else if (needsOptions.value && !localAttribute.value.config.options) {
+    // 如果是需要选项的类型但没有选项，创建一个默认选项
+    localAttribute.value.config.options = [{
+      id: `option-${Date.now()}-1`,
+      value: 'option_1',
+      label: '选项 1',
+      color: '#409eff'
+    }]
   }
+
+  console.log('AttributeEditor 初始化完成，localAttribute：', localAttribute.value)
 }
 
 // 监听外部属性变化
-watch(() => props.attribute, () => {
-  initializeAttribute()
-}, { deep: true, immediate: true })
+watch(() => props.attribute, (newAttribute, oldAttribute) => {
+  console.log('AttributeEditor watch 触发，新属性：', newAttribute, '旧属性：', oldAttribute)
+  if (newAttribute) {
+    initializeAttribute()
+  }
+}, { immediate: true, deep: true })
 
 // 属性类型分组
 const attributeTypeGroups = ref([
@@ -502,70 +576,41 @@ const attributeTypeGroups = ref([
   }
 ])
 
-// 方法
+// 处理键名输入
 const handleKeyInput = (value) => {
   // 自动清理键名，只保留字母、数字和下划线
-  localAttribute.value.key = value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase()
+  localAttribute.value.key = value
+      .replace(/[^a-zA-Z0-9_]/g, '')
+      .toLowerCase()
+      .replace(/^[0-9]/, 'attr_$&') // 如果以数字开头，添加前缀
 }
 
+// 处理类型变化
 const handleTypeChange = (newType) => {
+  console.log('类型变化为：', newType)
   localAttribute.value.type = newType
-  // 重置类型特定配置
+
+  // 重置类型相关的配置
   localAttribute.value.config = getDefaultConfig(newType)
   localAttribute.value.validation = getDefaultValidation(newType)
-  localAttribute.value.default = getDefaultValue(newType)
-}
 
-const getDefaultConfig = (type) => {
-  switch (type) {
-    case 'textarea':
-      return { rows: 3 }
-    case 'select':
-    case 'multiselect':
-    case 'radio':
-    case 'checkbox':
-      return { options: [] }
-    case 'currency':
-      return { currency: 'CNY' }
-    case 'date':
-    case 'datetime':
-      return { format: 'YYYY-MM-DD', range: false }
-    case 'file':
-      return { accept: '', maxSize: 10, maxCount: 1 }
-    default:
-      return {}
-  }
-}
-
-const getDefaultValidation = (type) => {
-  switch (type) {
-    case 'text':
-    case 'textarea':
-    case 'url':
-      return { maxLength: 100 }
+  // 重置默认值
+  switch (newType) {
     case 'number':
     case 'currency':
     case 'percentage':
-      return { min: 0, max: 1000, step: 1 }
-    default:
-      return {}
-  }
-}
-
-const getDefaultValue = (type) => {
-  switch (type) {
-    case 'number':
-    case 'currency':
-    case 'percentage':
-      return 0
+      localAttribute.value.default = 0
+      break
     case 'checkbox':
     case 'multiselect':
-      return []
+      localAttribute.value.default = []
+      break
     default:
-      return ''
+      localAttribute.value.default = ''
   }
 }
 
+// 添加选项
 const addOption = () => {
   if (!localAttribute.value.config.options) {
     localAttribute.value.config.options = []
@@ -582,6 +627,7 @@ const addOption = () => {
   localAttribute.value.config.options.push(newOption)
 }
 
+// 移除选项
 const removeOption = (index) => {
   if (localAttribute.value.config.options.length > 1) {
     localAttribute.value.config.options.splice(index, 1)
@@ -590,17 +636,21 @@ const removeOption = (index) => {
   }
 }
 
+// 处理选项值输入
 const handleOptionValueInput = (option, value) => {
   // 清理选项值，只保留字母、数字和下划线
   option.value = value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase()
 }
 
+// 选项拖拽
 const onOptionDrag = () => {
-  // 拖拽后可以执行的操作
-  console.log('Options reordered')
+  console.log('选项重新排序')
 }
 
+// 保存
 const handleSave = () => {
+  console.log('准备保存属性：', localAttribute.value)
+
   // 验证必填字段
   if (!localAttribute.value.label?.trim()) {
     ElMessage.warning('请输入属性标签')
@@ -619,7 +669,7 @@ const handleSave = () => {
   }
 
   // 验证选择类型的选项
-  if (['select', 'multiselect', 'radio', 'checkbox'].includes(localAttribute.value.type)) {
+  if (needsOptions.value) {
     if (!localAttribute.value.config.options || localAttribute.value.config.options.length === 0) {
       ElMessage.warning('请至少添加一个选项')
       return
@@ -632,19 +682,24 @@ const handleSave = () => {
       ElMessage.warning('选项值不能重复')
       return
     }
+
+    // 验证选项标签不为空
+    const emptyLabels = localAttribute.value.config.options.filter(opt => !opt.label?.trim())
+    if (emptyLabels.length > 0) {
+      ElMessage.warning('选项标签不能为空')
+      return
+    }
   }
 
-  emit('save', localAttribute.value)
+  console.log('验证通过，发送保存事件')
+  emit('save', JSON.parse(JSON.stringify(localAttribute.value)))
 }
 
+// 取消
 const handleCancel = () => {
+  console.log('取消编辑')
   emit('cancel')
 }
-
-// 组件挂载时初始化
-onMounted(() => {
-  initializeAttribute()
-})
 </script>
 
 <style scoped>

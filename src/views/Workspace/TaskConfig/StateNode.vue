@@ -58,7 +58,7 @@
 
     <!-- 拖拽时的虚框 -->
     <div
-        v-if="isDragging"
+        v-show="isDragging"
         class="drag-ghost"
         :style="dragGhostStyle"
     ></div>
@@ -66,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { VideoPause, VideoPlay, Operation, Edit, Delete, Connection } from '@element-plus/icons-vue'
 
@@ -87,13 +87,14 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['select', 'move', 'edit', 'delete', 'start-connect'])
+const emit = defineEmits(['select', 'move', 'edit', 'delete', 'start-connect', 'resolve-conflicts'])
 
 // 响应式数据
 const isDragging = ref(false)
 const dragStartPos = ref({ x: 0, y: 0 })
 const dragCurrentPos = ref({ x: 0, y: 0 })
 const dragOffset = ref({ x: 0, y: 0 })
+const nodeRef = ref(null)
 
 // 计算样式
 const nodeStyle = computed(() => ({
@@ -107,7 +108,7 @@ const nodeStyle = computed(() => ({
 const dragGhostStyle = computed(() => ({
   left: `${dragCurrentPos.value.x}px`,
   top: `${dragCurrentPos.value.y}px`,
-  backgroundColor: props.status.color || '#409eff'
+  backgroundColor: props.status.color + '80' || '#409eff80'
 }))
 
 // 检查是否是唯一的初始状态
@@ -115,6 +116,43 @@ const isOnlyInitial = computed(() => {
   if (props.status.type !== 'initial') return false
   return props.allStatuses.filter(s => s.type === 'initial').length === 1
 })
+
+// 清理事件监听
+onBeforeUnmount(() => {
+  document.removeEventListener('mousemove', handleMouseMove)
+  document.removeEventListener('mouseup', handleMouseUp)
+})
+
+// 拖拽事件处理
+const handleMouseMove = (e) => {
+  if (!isDragging.value) return
+
+  // 计算相对于画布的新位置
+  const parentRect = nodeRef.value.parentElement.getBoundingClientRect()
+  const newX = e.clientX - parentRect.left - dragOffset.value.x
+  const newY = e.clientY - parentRect.top - dragOffset.value.y
+
+  // 更新虚框位置
+  dragCurrentPos.value = {
+    x: Math.max(0, Math.min(newX, parentRect.width - 100)),
+    y: Math.max(0, Math.min(newY, parentRect.height - 60))
+  }
+}
+
+const handleMouseUp = () => {
+  if (!isDragging.value) return
+
+  // 结束拖拽
+  isDragging.value = false
+  document.removeEventListener('mousemove', handleMouseMove)
+  document.removeEventListener('mouseup', handleMouseUp)
+
+  // 检查并处理位置冲突
+  const finalPosition = checkAndResolveConflicts(dragCurrentPos.value)
+
+  // 更新实际位置
+  emit('move', props.status, finalPosition)
+}
 
 // 方法
 const handleMouseDown = (event) => {
@@ -126,11 +164,10 @@ const handleMouseDown = (event) => {
 
   // 开始拖拽
   isDragging.value = true
-
-  // 记录拖拽开始位置
   dragStartPos.value = { ...props.status.position }
   dragCurrentPos.value = { ...props.status.position }
 
+  // 获取节点位置
   const nodeRect = event.currentTarget.getBoundingClientRect()
   const parentRect = event.currentTarget.parentElement.getBoundingClientRect()
 
@@ -140,45 +177,12 @@ const handleMouseDown = (event) => {
     y: event.clientY - nodeRect.top
   }
 
-  const handleMouseMove = (e) => {
-    if (!isDragging.value) return
-
-    const parentRect = event.currentTarget.parentElement.getBoundingClientRect()
-
-    // 计算新的位置
-    const newPosition = {
-      x: Math.max(0, Math.min(
-          e.clientX - parentRect.left - dragOffset.value.x,
-          parentRect.width - 100
-      )),
-      y: Math.max(0, Math.min(
-          e.clientY - parentRect.top - dragOffset.value.y,
-          parentRect.height - 60
-      ))
-    }
-
-    // 更新虚框位置
-    dragCurrentPos.value = newPosition
-  }
-
-  const handleMouseUp = () => {
-    if (!isDragging.value) return
-
-    // 检查并处理位置冲突
-    const finalPosition = checkAndResolveConflicts(dragCurrentPos.value)
-
-    // 更新实际位置
-    emit('move', props.status, finalPosition)
-
-    // 结束拖拽
-    isDragging.value = false
-
-    document.removeEventListener('mousemove', handleMouseMove)
-    document.removeEventListener('mouseup', handleMouseUp)
-  }
-
+  // 添加全局事件监听
   document.addEventListener('mousemove', handleMouseMove)
   document.addEventListener('mouseup', handleMouseUp)
+
+  // 保存节点引用
+  nodeRef.value = event.currentTarget
 }
 
 const checkAndResolveConflicts = (newPosition) => {
@@ -255,141 +259,74 @@ const handleStartConnect = (event) => {
   height: 60px;
   border-radius: 8px;
   border: 2px solid transparent;
-  color: white;
-  user-select: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  cursor: grab;
+  z-index: 10;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  font-size: 12px;
-  z-index: 2;
 }
 
-.state-node:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+.state-node.type-initial {
+  background-color: #e6f7ff !important;
+}
+
+.state-node.type-final {
+  background-color: #f6ffed !important;
 }
 
 .state-node.selected {
-  border-color: #fff;
-  box-shadow: 0 0 0 2px #409eff, 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-color: #409eff;
+  box-shadow: 0 0 8px rgba(64, 158, 255, 0.6);
 }
 
 .state-node.dragging {
-  z-index: 10;
   opacity: 0.7;
+  z-index: 100;
 }
 
 .state-icon {
-  font-size: 16px;
-  opacity: 0.9;
+  margin-bottom: 4px;
+  font-size: 20px;
 }
 
 .state-label {
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: bold;
   text-align: center;
-  line-height: 1;
-  max-width: 90px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .state-type-badge {
   position: absolute;
-  top: -8px;
-  right: -8px;
+  top: -10px;
+  right: -10px;
   background: #f56c6c;
   color: white;
-  font-size: 10px;
+  font-size: 12px;
   padding: 2px 6px;
   border-radius: 10px;
-  font-weight: 500;
-}
-
-.type-initial .state-type-badge {
-  background: #67c23a;
 }
 
 .floating-actions {
   position: absolute;
-  top: -45px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: -40px;
   display: flex;
-  gap: 6px;
+  gap: 5px;
   background: white;
+  padding: 4px;
   border-radius: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 6px;
-  z-index: 10;
-  animation: fadeInUp 0.3s ease;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-.floating-actions .el-button {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-
-.floating-actions .el-button:hover {
-  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .drag-ghost {
   position: absolute;
   width: 100px;
   height: 60px;
-  border: 2px dashed #409eff;
   border-radius: 8px;
-  background: rgba(64, 158, 255, 0.2);
+  border: 2px dashed #409eff;
+  z-index: 1000;
   pointer-events: none;
-  z-index: 1;
-  animation: ghostPulse 1s ease-in-out infinite;
-}
-
-@keyframes ghostPulse {
-  0%, 100% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 0.8;
-  }
-}
-
-/* 不同类型状态的样式变化 */
-.type-initial {
-  border-style: dashed;
-}
-
-.type-final {
-  border-width: 3px;
-}
-
-/* 禁用状态的样式 */
-.state-node.disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.state-node.disabled:hover {
-  transform: none;
 }
 </style>

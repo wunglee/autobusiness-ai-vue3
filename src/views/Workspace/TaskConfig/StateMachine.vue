@@ -72,8 +72,7 @@
               v-for="transition in transitionPaths"
               :key="transition.id"
               class="transition-group"
-              @mouseenter="handleTransitionMouseEnter(transition, $event)"
-              @mouseleave="handleTransitionMouseLeave"
+              @click="handleTransitionSelect(transition, $event)"
           >
             <path
                 :d="transition.path"
@@ -98,7 +97,7 @@
 
             <!-- 连接线悬浮操作按钮 -->
             <g
-                v-if="hoveredTransition?.id === transition.id"
+                v-if="selectedTransition?.id === transition.id"
                 class="transition-actions"
                 :transform="`translate(${transition.midPoint.x}, ${transition.midPoint.y})`"
             >
@@ -175,7 +174,7 @@
     </div>
 
     <!-- 转换规则编辑面板 -->
-    <div v-if="selectedTransition" class="transition-panel">
+    <div v-if="editingTransiingtion" class="transition-panel">
       <div class="panel-header">
         <h6>转换规则</h6>
         <el-button type="text" :icon="Close" @click="clearSelection" />
@@ -262,12 +261,12 @@ const localTransitions = ref([...props.transitions])
 const canvasRef = ref(null)
 const selectedStatus = ref(null)
 const selectedTransition = ref(null)
+const editingTransiingtion = ref(false)
 const tempConnection = ref('')
 const mousePos = ref({ x: 0, y: 0 })
 const isConnecting = ref(false)
 const connectSource = ref(null)
 const highlightTarget = ref(null)
-const hoveredTransition = ref(null)
 
 // 拖拽连线相关
 const isDraggingArrow = ref(false)
@@ -607,17 +606,14 @@ const handleConnectStatus = (targetStatus) => {
   ElMessage.success('转换规则已创建')
 }
 
-const handleTransitionMouseEnter = (transitionPath, event) => {
-  hoveredTransition.value = transitionPath
-}
-
-const handleTransitionMouseLeave = () => {
-  hoveredTransition.value = null
+const handleTransitionSelect = (transitionPath, event) => {
+  selectedTransition.value = transitionPath
 }
 
 const editTransition = (transition) => {
   selectedTransition.value = transition
   selectedStatus.value = null
+  editingTransiingtion.value = true
 }
 
 const deleteTransitionConfirm = async (transition) => {
@@ -631,6 +627,7 @@ const deleteTransitionConfirm = async (transition) => {
           type: 'warning',
         }
     )
+    editingTransiingtion.value = false
     deleteTransition(transition.id)
   } catch {
     // 用户取消删除
@@ -743,6 +740,7 @@ const selectTransition = (transitionPath) => {
 
 const updateTransition = (updatedTransition) => {
   const index = localTransitions.value.findIndex(t => t.id === updatedTransition.id)
+  editingTransiingtion.value = false
   if (index > -1) {
     localTransitions.value[index] = updatedTransition
     emit('update-transitions', localTransitions.value)

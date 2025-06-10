@@ -54,6 +54,7 @@
           circle
           @mousedown.stop="handleStartConnect"
           title="连接到其他状态"
+          :disabled="status.type === 'final'"
       />
     </div>
 
@@ -298,7 +299,10 @@ const handleDelete = () => {
 const handleStartConnect = (event) => {
   event.preventDefault()
   event.stopPropagation()
-
+  if (props.status.type === 'final') {
+    ElMessage.warning('终止状态不能作为转换起点')
+    return
+  }
   // 开始连接模式
   emit('start-connect', props.status, event)
 }

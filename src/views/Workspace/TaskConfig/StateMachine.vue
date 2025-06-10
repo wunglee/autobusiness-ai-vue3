@@ -543,6 +543,15 @@ const handleMouseUp = () => {
     const targetStatus = getTargetStatusAtMouse()
 
     if (targetStatus && draggingTransition.value) {
+      if (targetStatus.type === 'initial') {
+        ElMessage.warning('不允许指向初始状态')
+        isDraggingArrow.value = false
+        draggingTransition.value = null
+        tempConnection.value = ''
+        highlightTarget.value = null
+        return
+      }
+
       // 检查目标状态是否改变
       if (draggingTransition.value.transition.toStatus !== targetStatus.key) {
         // 更新连接的目标
@@ -567,6 +576,14 @@ const handleMouseUp = () => {
     const targetStatus = getTargetStatusAtMouse()
 
     if (targetStatus && draggingTransition.value) {
+      if (targetStatus.type === 'final') {
+        ElMessage.warning('终止状态不能作为转换起点')
+        isDraggingTail.value = false
+        draggingTransition.value = null
+        tempConnection.value = ''
+        highlightTarget.value = null
+        return
+      }
       // 检查目标状态是否改变
       if (draggingTransition.value.transition.fromStatus !== targetStatus.key) {
         // 更新连接的起点
@@ -654,7 +671,17 @@ const handleResolveConflicts = (conflicts) => {
 
 const handleConnectStatus = (targetStatus) => {
   if (!connectSource.value || connectSource.value.key === targetStatus.key) return
+  // 新增检查：目标状态不能是初始状态
+  if (targetStatus.type === 'initial') {
+    ElMessage.warning('不允许指向初始状态')
+    return
+  }
 
+  // 新增检查：源状态不能是终止状态
+  if (connectSource.value.type === 'final') {
+    ElMessage.warning('终止状态不能作为转换起点')
+    return
+  }
   // 检查是否已存在相同的转换
   const existingTransition = localTransitions.value.find(t =>
       t.fromStatus === connectSource.value.key && t.toStatus === targetStatus.key

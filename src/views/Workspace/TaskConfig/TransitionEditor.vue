@@ -124,17 +124,6 @@
             </div>
           </div>
         </div>
-
-        <div v-else class="empty-instances">
-          <el-empty
-              description="暂无触发器配置"
-              :image-size="60"
-          >
-            <el-button type="primary" :icon="Plus" @click="addTriggerInstance">
-              添加第一个触发器配置
-            </el-button>
-          </el-empty>
-        </div>
       </div>
     </div>
 

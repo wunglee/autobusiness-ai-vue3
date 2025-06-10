@@ -126,7 +126,7 @@ const handleCreate = () => {
   margin-bottom: 24px;
   border: 1px solid #e4e7ed;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible; /* 确保不阻止换行 */
 }
 
 .kanban-group:last-child {
@@ -165,9 +165,11 @@ const handleCreate = () => {
 }
 
 .kanban-columns {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); /* 自动换行的关键 */
+  gap: 1px;
   min-height: 200px;
-  background: white;
+  background: #e4e7ed; /* 间隙颜色 */
 }
 
 .empty-kanban {

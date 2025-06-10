@@ -516,7 +516,7 @@ onMounted(() => {
 
 .task-board-content {
   flex: 1;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .workspace-layout {
@@ -562,8 +562,7 @@ onMounted(() => {
 .workspace-main {
   flex: 1;
   background: #fafbfc;
-  overflow: hidden;
-  min-width: 0;
+  overflow: auto
 }
 
 .empty-detail {

@@ -357,7 +357,38 @@ const handleDragLeave = () => {
 .column-content::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+/* 3. 状态列基础样式 */
+:deep(.status-column) {
+  background: white;
+  min-width: 240px; /* 最小宽度，确保内容不被压缩 */
+  max-width: 320px; /* 最大宽度，防止过宽 */
+  display: flex;
+  flex-direction: column;
+  border-right: none; /* 移除原来的右边框，使用gap代替 */
+}
 
+/* 4. 状态列头部样式 */
+:deep(.status-column .column-header) {
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e4e7ed;
+  border-top: 3px solid; /* 状态颜色指示条 */
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* 5. 状态标签不换行，但允许省略 */
+:deep(.status-column .status-label) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
 /* 响应式设计 */
 @media (max-width: 768px) {
   .status-column {

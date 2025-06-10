@@ -532,19 +532,120 @@ const getRelativeTime = (date) => {
   justify-content: center;
   font-size: 16px;
 }
+:deep(.status-column .column-content) {
+  flex: 1;
+  padding: 8px;
+  overflow-y: auto;
+  max-height: 400px; /* 防止看板过高 */
+}
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .task-card {
-    padding: 10px;
+/* 7. 任务卡片响应式样式 */
+:deep(.task-card) {
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+:deep(.task-card:hover) {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+/* ============ 响应式断点 ============ */
+
+/* 超大屏幕 (>1600px) - 最多5列 */
+@media (min-width: 1600px) {
+  .kanban-columns {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   }
 
-  .card-title {
+  :deep(.status-column) {
+    min-width: 280px;
+    max-width: 350px;
+  }
+}
+
+/* 大屏幕 (1200px-1600px) - 最多4列 */
+@media (max-width: 1600px) and (min-width: 1200px) {
+  .kanban-columns {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+
+  :deep(.status-column) {
+    min-width: 260px;
+    max-width: 320px;
+  }
+}
+
+/* 中等屏幕 (768px-1200px) - 最多3列 */
+@media (max-width: 1200px) and (min-width: 768px) {
+  .kanban-columns {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  :deep(.status-column) {
+    min-width: 220px;
+    max-width: 280px;
+  }
+
+  :deep(.status-column .column-header) {
+    padding: 10px 12px;
+  }
+
+  :deep(.task-card) {
+    padding: 10px;
+  }
+}
+
+/* 小屏幕 (480px-768px) - 最多2列 */
+@media (max-width: 768px) and (min-width: 480px) {
+  .kanban-columns {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 8px;
+    padding: 8px;
+  }
+
+  :deep(.status-column) {
+    min-width: 200px;
+    max-width: none;
+    border-radius: 6px;
+  }
+
+  :deep(.status-column .column-header) {
+    padding: 8px 12px;
     font-size: 13px;
   }
 
-  .card-description {
-    font-size: 11px;
+  :deep(.task-card) {
+    padding: 8px;
+    margin-bottom: 6px;
+  }
+
+  :deep(.task-card .card-title) {
+    font-size: 13px;
+  }
+}
+
+/* 超小屏幕 (<480px) - 单列显示 */
+@media (max-width: 480px) {
+  .kanban-columns {
+    grid-template-columns: 1fr; /* 强制单列 */
+    gap: 8px;
+    padding: 8px;
+  }
+
+  :deep(.status-column) {
+    min-width: auto;
+    width: 100%;
+    max-width: none;
+  }
+
+  :deep(.status-column .status-label) {
+    max-width: none; /* 移动端显示完整状态名 */
   }
 }
 </style>

@@ -429,7 +429,7 @@ const handleChildStatusChange = (task, newStatus) => {
 
 .detail-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: auto;
   padding: 24px;
 }
 

@@ -25,6 +25,7 @@
         <TypeEditor
             v-if="currentType"
             :type="currentType"
+            :all-types="taskTypes"
             @update="handleUpdateType"
             @save="handleSaveType"
         />
@@ -46,6 +47,7 @@
     </template>
   </el-dialog>
 </template>
+
 
 <script setup>
 import { ref, computed, watch } from 'vue'
@@ -280,6 +282,7 @@ const handleSelectType = (typeId) => {
   currentTypeId.value = typeId
 }
 
+// 创建新任务类型
 const handleCreateType = () => {
   const newType = {
     id: Date.now().toString(),
@@ -314,6 +317,23 @@ const handleCreateType = () => {
   ElMessage.success('新任务类型已创建')
 }
 
+// 复制任务类型
+const handleDuplicateType = (typeId) => {
+  const originalType = taskTypes.value.find(type => type.id === typeId)
+  if (originalType) {
+    const duplicatedType = {
+      ...JSON.parse(JSON.stringify(originalType)),
+      id: Date.now().toString(),
+      name: `${originalType.name} (副本)`,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+
+    taskTypes.value.push(duplicatedType)
+    currentTypeId.value = duplicatedType.id
+    ElMessage.success('任务类型已复制')
+  }
+}
 const handleDeleteType = async (typeId) => {
   try {
     await ElMessageBox.confirm(
@@ -335,23 +355,6 @@ const handleDeleteType = async (typeId) => {
     }
   } catch {
     // 用户取消删除
-  }
-}
-
-const handleDuplicateType = (typeId) => {
-  const originalType = taskTypes.value.find(type => type.id === typeId)
-  if (originalType) {
-    const duplicatedType = {
-      ...JSON.parse(JSON.stringify(originalType)),
-      id: Date.now().toString(),
-      name: `${originalType.name} (副本)`,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }
-
-    taskTypes.value.push(duplicatedType)
-    currentTypeId.value = duplicatedType.id
-    ElMessage.success('任务类型已复制')
   }
 }
 

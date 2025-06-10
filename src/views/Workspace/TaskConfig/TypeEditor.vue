@@ -121,7 +121,6 @@
         </div>
       </el-tab-pane>
 
-      <!-- 子任务限制 -->
       <el-tab-pane label="子任务限制" name="childTypes">
         <div class="tab-content">
           <div class="form-section">
@@ -129,25 +128,28 @@
             <p class="section-desc">设置此任务类型可以包含哪些子任务类型</p>
 
             <div class="child-types-config">
-              <el-checkbox-group v-model="localType.allowedChildTypes" @change="handleChange">
+              <el-checkbox-group
+                  v-model="localType.allowedChildTypes"
+                  @change="handleChange"
+              >
                 <div class="child-type-grid">
                   <el-checkbox
-                      v-for="childType in availableChildTypes"
+                      v-for="childType in allTypes"
                       :key="childType.id"
                       :label="childType.id"
-                      :disabled="childType.id === localType.id"
                   >
                     <div class="child-type-option">
                       <span class="child-icon">{{ childType.icon }}</span>
                       <span class="child-name">{{ childType.name }}</span>
+                      <el-tag v-if="childType.id === localType.id" size="small" type="info">自身</el-tag>
                     </div>
                   </el-checkbox>
                 </div>
               </el-checkbox-group>
 
-              <div v-if="localType.allowedChildTypes.length === 0" class="no-child-types">
+              <div v-if="allTypes.length === 0" class="no-child-types">
                 <el-icon><InfoFilled /></el-icon>
-                <span>此任务类型不允许创建子任务</span>
+                <span>没有可用的任务类型</span>
               </div>
             </div>
           </div>
@@ -189,6 +191,10 @@ const props = defineProps({
   type: {
     type: Object,
     required: true
+  },
+  allTypes: {   // 新增，传递所有任务类型
+    type: Array,
+    default: () => []
   }
 })
 
@@ -505,5 +511,9 @@ const formatDate = (date) => {
 .config-tabs :deep(.el-tabs__item) {
   padding: 20px 16px !important;
   min-width: 50px !important;
+}
+.child-type-option .el-tag {
+  margin-left: 8px;
+  vertical-align: middle;
 }
 </style>

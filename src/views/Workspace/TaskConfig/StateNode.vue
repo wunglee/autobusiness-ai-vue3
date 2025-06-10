@@ -234,10 +234,8 @@ const handleMouseDown = (event) => {
   const canvas = nodeRef.value.parentElement
   const canvasRect = canvas.getBoundingClientRect()
 
-  // 获取节点的实际位置（通过DOM）
-  const nodeRect = nodeRef.value.getBoundingClientRect()
-  const ghostX = nodeRect.left - canvasRect.left
-  const ghostY = nodeRect.top - canvasRect.top
+  const ghostX = props.status.position.x
+  const ghostY = props.status.position.y
 
   // 记录拖拽数据
   dragData = {
@@ -266,7 +264,6 @@ const handleMouseDown = (event) => {
   document.addEventListener('mousemove', handleMouseMove)
   document.addEventListener('mouseup', handleMouseUp)
 }
-
 const handleClick = (event) => {
   event.stopPropagation()
 

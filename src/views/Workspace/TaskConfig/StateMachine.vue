@@ -174,10 +174,10 @@
     </div>
 
     <!-- 转换规则编辑面板 -->
-    <div v-if="editingTransiingtion" class="transition-panel">
+    <div v-if="editingTransition" class="transition-panel">
       <div class="panel-header">
         <h6>转换规则</h6>
-        <el-button type="text" :icon="Close" @click="clearSelection" />
+        <el-button type="text" :icon="Close" @click="editingTransition = false" />
       </div>
       <div class="panel-content">
         <TransitionEditor
@@ -261,7 +261,7 @@ const localTransitions = ref([...props.transitions])
 const canvasRef = ref(null)
 const selectedStatus = ref(null)
 const selectedTransition = ref(null)
-const editingTransiingtion = ref(false)
+const editingTransition = ref(false)
 const tempConnection = ref('')
 const mousePos = ref({ x: 0, y: 0 })
 const isConnecting = ref(false)
@@ -613,7 +613,7 @@ const handleTransitionSelect = (transitionPath, event) => {
 const editTransition = (transition) => {
   selectedTransition.value = transition
   selectedStatus.value = null
-  editingTransiingtion.value = true
+  editingTransition.value = true
 }
 
 const deleteTransitionConfirm = async (transition) => {
@@ -627,7 +627,7 @@ const deleteTransitionConfirm = async (transition) => {
           type: 'warning',
         }
     )
-    editingTransiingtion.value = false
+    editingTransition.value = false
     deleteTransition(transition.id)
   } catch {
     // 用户取消删除
@@ -740,7 +740,7 @@ const selectTransition = (transitionPath) => {
 
 const updateTransition = (updatedTransition) => {
   const index = localTransitions.value.findIndex(t => t.id === updatedTransition.id)
-  editingTransiingtion.value = false
+  editingTransition.value = false
   if (index > -1) {
     localTransitions.value[index] = updatedTransition
     emit('update-transitions', localTransitions.value)
@@ -780,7 +780,7 @@ const autoLayout = () => {
 const clearSelection = () => {
   selectedStatus.value = null
   selectedTransition.value = null
-  editingTransiingtion.value=false
+  editingTransition.value=false
 }
 
 const handleStatusKeyInput = (value) => {
@@ -820,8 +820,10 @@ const handleStatusKeyInput = (value) => {
 }
 
 .machine-canvas-container {
+  position: relative; /* 创建定位上下文 */
+  width: 100%;
+  height: 100%;
   flex: 1;
-  position: relative;
   border: 1px solid #e4e7ed;
   border-radius: 6px;
   overflow: hidden;

@@ -780,6 +780,7 @@ const autoLayout = () => {
 const clearSelection = () => {
   selectedStatus.value = null
   selectedTransition.value = null
+  editingTransiingtion.value=false
 }
 
 const handleStatusKeyInput = (value) => {

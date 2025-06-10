@@ -20,19 +20,32 @@
     <!-- 主内容区域 -->
     <div class="task-board-content">
       <div class="workspace-layout">
-        <!-- 左侧任务列表 -->
-        <div class="workspace-sidebar">
-          <TaskList
-              :tasks="tasks"
-              :task-types="taskTypes"
-              :selected-task-id="selectedTaskId"
-              :loading="loading"
-              @select="handleSelectTask"
-              @create="handleCreateTask"
-              @edit="handleEditTask"
-              @delete="handleDeleteTask"
-              @refresh="loadTasks"
-          />
+        <!-- 左侧任务列表 - 添加可调整宽度功能 -->
+        <div
+            class="workspace-sidebar-resizable"
+            :style="{ width: sidebarWidth + 'px' }"
+        >
+          <div class="workspace-sidebar">
+            <TaskList
+                :tasks="tasks"
+                :task-types="taskTypes"
+                :selected-task-id="selectedTaskId"
+                :loading="loading"
+                @select="handleSelectTask"
+                @create="handleCreateTask"
+                @edit="handleEditTask"
+                @delete="handleDeleteTask"
+                @refresh="loadTasks"
+            />
+          </div>
+
+          <!-- 拖拽条 -->
+          <div
+              class="resize-bar"
+              @mousedown="startSidebarResize"
+              @mouseenter="showSidebarResizeCursor"
+              @mouseleave="hideSidebarResizeCursor"
+          ></div>
         </div>
 
         <!-- 右侧任务详情 -->
@@ -90,6 +103,9 @@ import {
   Refresh
 } from '@element-plus/icons-vue'
 
+// 导入 useResizePanel hook
+import { useResizePanel } from '@/components/useResizePanel'
+
 // 组件导入
 import TaskTypeConfig from './TaskConfig/TaskTypeConfig.vue'
 import TaskList from './TaskBoard/TaskList.vue'
@@ -111,6 +127,22 @@ const taskTypes = ref([])
 
 // 任务数据
 const tasks = ref([])
+
+// ======= 拖拽宽度调整逻辑 =======
+const sidebarWidth = ref(320) // 初始宽度，与原来的CSS保持一致
+
+// 左侧边栏拖拽调整
+const {
+  startResize: startSidebarResize,
+  showResizeCursor: showSidebarResizeCursor,
+  hideResizeCursor: hideSidebarResizeCursor
+} = useResizePanel({
+  widthRef: sidebarWidth,
+  direction: 'horizontal',
+  min: 200,        // 最小宽度
+  max: 500,        // 最大宽度
+  reverse: false   // 正向拖拽
+})
 
 // 计算属性
 const selectedTask = computed(() => {
@@ -343,7 +375,7 @@ const handleCreateChildTask = (parentTask) => {
 }
 
 const handleEditTask = (task) => {
-  editingTask.value = { ...task }
+  editingTask.value = task
   showEditDialog.value = true
 }
 
@@ -492,17 +524,46 @@ onMounted(() => {
   display: flex;
 }
 
+/* 可调整宽度的侧边栏容器 */
+.workspace-sidebar-resizable {
+  flex-shrink: 0;
+  position: relative;
+  background: white;
+  display: flex;
+  /* 宽度由JS控制 */
+}
+
+/* 任务列表侧边栏 */
 .workspace-sidebar {
-  width: 320px;
+  flex: 1;
   border-right: 1px solid #e4e7ed;
   background: white;
   overflow: hidden;
+}
+
+/* 拖拽条样式 */
+.resize-bar {
+  width: 5px;
+  background: #e4e7ed;
+  cursor: col-resize;
+  transition: background 0.2s;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 10;
+}
+
+.resize-bar:hover,
+.resize-bar:active {
+  background: #b5bac8;
 }
 
 .workspace-main {
   flex: 1;
   background: #fafbfc;
   overflow: hidden;
+  min-width: 0;
 }
 
 .empty-detail {
@@ -533,5 +594,34 @@ onMounted(() => {
 
 :deep(.el-breadcrumb__item) {
   color: #606266;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .workspace-layout {
+    flex-direction: column;
+  }
+
+  .workspace-sidebar-resizable {
+    width: 100% !important;
+    height: 300px;
+    border-right: none;
+    border-bottom: 1px solid #e4e7ed;
+  }
+
+  .resize-bar {
+    width: 100%;
+    height: 5px;
+    cursor: row-resize;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    top: auto;
+  }
+
+  .workspace-sidebar {
+    border-right: none;
+    border-bottom: 1px solid #e4e7ed;
+  }
 }
 </style>

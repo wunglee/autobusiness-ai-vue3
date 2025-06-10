@@ -25,7 +25,7 @@
     </div>
 
     <!-- 主工作区 -->
-    <div class="workspace-main">
+    <div class="workspace-main" :class="{ 'with-agent-sidebar': !showAgentTeamChat }">
       <el-tabs
           v-model="activeMainTab"
           tab-position="left"
@@ -512,6 +512,7 @@ const {
   overflow: hidden;
   position: relative;
   min-width: 0;
+  transition: margin-right 0.3s ease;
 }
 
 .workspace-main-tabs {
@@ -554,12 +555,19 @@ const {
   min-height: auto;
   height: auto;
 }
-
+.workspace-main.with-agent-sidebar {
+  margin-right: 56px; /* 智能体侧边栏宽度 + 一些余量 */
+}
 .workspace-main-tabs :deep(.el-tabs__item:hover) {
   background: #f5f7fa;
   color: #409eff;
 }
-
+/* 响应式设计中添加：移动端时取消边距 */
+@media (max-width: 768px) {
+  .workspace-main.with-agent-sidebar {
+    margin-right: 0;
+  }
+}
 .workspace-main-tabs :deep(.el-tabs__item.is-active) {
   background: #ffffff;
   color: #409eff;

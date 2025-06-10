@@ -1,4 +1,4 @@
-<!-- src/views/Workspace/TaskBoard/TaskList.vue -->
+<!-- src/views/Workspace/TaskBoard/TaskList.vue - 修复版本 -->
 <template>
   <div class="task-list">
     <!-- 列表头部 -->
@@ -90,7 +90,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, provide } from 'vue'
 import {
   Plus,
   Setting,
@@ -139,6 +139,12 @@ const contextMenu = ref({
   }
 })
 
+// 🔥 关键修复：提供数据注入给子组件
+provide('allTasks', computed(() => props.tasks))
+provide('taskTypes', computed(() => props.taskTypes))
+provide('selectedTaskId', computed(() => props.selectedTaskId))
+provide('expandedNodes', expandedNodes)
+
 // 计算属性
 const filteredTasks = computed(() => {
   if (!searchKeyword.value.trim()) return props.tasks
@@ -171,8 +177,11 @@ const handleSelect = (task) => {
   emit('select', task.id)
 }
 
+// 🔥 关键修复：统一展开状态管理
 const handleToggle = (task) => {
+  console.log('Toggle task:', task.title, 'Current expanded:', expandedNodes.value[task.id])
   expandedNodes.value[task.id] = !expandedNodes.value[task.id]
+  console.log('New expanded state:', expandedNodes.value[task.id])
 }
 
 const handleCreate = (parentTask) => {
@@ -241,12 +250,14 @@ const handleDocumentClick = (event) => {
 onMounted(() => {
   document.addEventListener('click', handleDocumentClick)
 
-  // 初始化展开状态
+  // 初始化展开状态 - 默认展开有子任务的节点
   props.tasks.forEach(task => {
     if (task.hasChildren) {
       expandedNodes.value[task.id] = true
     }
   })
+
+  console.log('Initialized expanded nodes:', expandedNodes.value)
 })
 
 onUnmounted(() => {
@@ -255,11 +266,13 @@ onUnmounted(() => {
 
 // 监听任务变化，自动展开有子任务的节点
 watch(() => props.tasks, (newTasks) => {
+  console.log('Tasks changed, updating expanded nodes...')
   newTasks.forEach(task => {
     if (task.hasChildren && !(task.id in expandedNodes.value)) {
       expandedNodes.value[task.id] = true
     }
   })
+  console.log('Updated expanded nodes:', expandedNodes.value)
 }, { immediate: true })
 
 // 暴露方法给父组件

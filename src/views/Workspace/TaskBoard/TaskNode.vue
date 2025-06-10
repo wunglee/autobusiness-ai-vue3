@@ -1,4 +1,4 @@
-<!-- src/views/Workspace/TaskBoard/TaskNode.vue -->
+<!-- src/views/Workspace/TaskBoard/TaskNode.vue - 修复版本 -->
 <template>
   <div class="task-node">
     <!-- 当前任务节点 -->
@@ -64,16 +64,15 @@
       </div>
     </div>
 
-    <!-- 子任务节点 -->
+    <!-- 🔥 关键修复：子任务节点渲染逻辑简化 -->
     <div v-if="expanded && task.hasChildren" class="child-nodes">
       <TaskNode
-          v-for="child in children"
+          v-for="child in childTasks"
           :key="child.id"
           :task="child"
           :task-type="getChildTaskType(child.typeId)"
-          :children="getGrandChildren(child.id)"
-          :selected="child.id === selectedTaskId"
-          :expanded="childExpandedStates[child.id]"
+          :selected="child.id === selectedTaskIdValue"
+          :expanded="expandedNodesValue[child.id] || false"
           @select="handleChildSelect"
           @toggle="handleChildToggle"
           @create="handleChildCreate"
@@ -85,7 +84,7 @@
 </template>
 
 <script setup>
-import { ref, computed, inject } from 'vue'
+import { computed, inject } from 'vue'
 import {
   ArrowRight,
   MoreFilled,
@@ -105,10 +104,6 @@ const props = defineProps({
     type: Object,
     default: null
   },
-  children: {
-    type: Array,
-    default: () => []
-  },
   selected: {
     type: Boolean,
     default: false
@@ -122,22 +117,20 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(['select', 'toggle', 'create', 'edit', 'delete'])
 
-// 注入数据
-const selectedTaskId = inject('selectedTaskId', ref(null))
-const taskTypes = inject('taskTypes', ref([]))
-const allTasks = inject('allTasks', ref([]))
+// 🔥 关键修复：使用注入的数据，而不是自己维护状态
+const selectedTaskIdValue = inject('selectedTaskId', '')
+const taskTypesValue = inject('taskTypes', [])
+const allTasksValue = inject('allTasks', [])
+const expandedNodesValue = inject('expandedNodes', {})
 
-// 响应式数据
-const childExpandedStates = ref({})
-
-// 计算属性
-const getGrandChildren = computed(() => (parentId) => {
-  return allTasks.value.filter(task => task.parentId === parentId)
+// 🔥 关键修复：计算子任务
+const childTasks = computed(() => {
+  return allTasksValue.value.filter(task => task.parentId === props.task.id)
 })
 
 // 方法
 const getChildTaskType = (typeId) => {
-  return taskTypes.value.find(type => type.id === typeId)
+  return taskTypesValue.value.find(type => type.id === typeId)
 }
 
 const getStatusColor = (status) => {
@@ -158,6 +151,7 @@ const handleSelect = () => {
 
 const handleToggle = () => {
   if (props.task.hasChildren) {
+    console.log('TaskNode toggle for:', props.task.title)
     emit('toggle', props.task)
   }
 }
@@ -186,13 +180,13 @@ const handleActionCommand = (command) => {
   }
 }
 
-// 子任务事件处理
+// 🔥 关键修复：简化子任务事件处理，直接向上传递
 const handleChildSelect = (task) => {
   emit('select', task)
 }
 
 const handleChildToggle = (task) => {
-  childExpandedStates.value[task.id] = !childExpandedStates.value[task.id]
+  emit('toggle', task)
 }
 
 const handleChildCreate = (task) => {

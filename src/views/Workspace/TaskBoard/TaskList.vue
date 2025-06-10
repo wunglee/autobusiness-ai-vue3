@@ -14,13 +14,6 @@
         >
           创建
         </el-button>
-        <el-button
-            type="text"
-            :icon="Setting"
-            @click="openSettings"
-            title="配置任务类型"
-            size="small"
-        />
       </div>
     </div>
 

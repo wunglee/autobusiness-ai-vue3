@@ -30,9 +30,7 @@
           </el-col>
           <el-col :span="6">
             <el-select v-model="categoryFilter" placeholder="类型筛选" clearable>
-              <el-option label="时间类" value="time" />
-              <el-option label="事件类" value="event" />
-              <el-option label="条件类" value="condition" />
+              <el-option label="系统预设" value="condition" />
               <el-option label="自定义" value="custom" />
             </el-select>
           </el-col>
@@ -60,7 +58,6 @@
                 >
                   {{ getCategoryName(instance.category) }}
                 </el-tag>
-                <span class="instance-type">{{ instance.triggerType }}</span>
               </div>
             </div>
             <div class="card-actions">
@@ -190,25 +187,13 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="触发器类型" prop="triggerType">
-              <el-select v-model="currentInstance.triggerType" placeholder="选择触发器类型">
-                <el-option label="定时触发器" value="定时触发器" />
-                <el-option label="事件触发器" value="事件触发器" />
-                <el-option label="条件触发器" value="条件触发器" />
-                <el-option label="手动触发器" value="手动触发器" />
-              </el-select>
-            </el-form-item>
-          </el-col>
         </el-row>
 
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="分类" prop="category">
               <el-select v-model="currentInstance.category" placeholder="选择分类">
-                <el-option label="时间类" value="time" />
-                <el-option label="事件类" value="event" />
-                <el-option label="条件类" value="condition" />
+                <el-option label="系统预设" value="condition" />
                 <el-option label="自定义" value="custom" />
               </el-select>
             </el-form-item>
@@ -375,59 +360,8 @@ const instanceForm = ref(null)
 const triggerInstances = ref([
   {
     id: 1,
-    name: '工作日定时检查',
-    description: '在工作日每天9点自动检查任务状态并触发相应转换',
-    triggerType: '定时触发器',
-    category: 'time',
-    enabled: true,
-    system: true,
-    usageCount: 12,
-    lastTriggered: new Date('2024-06-08'),
-    successRate: 95,
-    createdAt: new Date('2024-01-01'),
-    parameters: {
-      interval: '24',
-      unit: '小时',
-      startTime: '09:00',
-      workdaysOnly: true
-    },
-    parametersList: [
-      { key: 'interval', value: '24', type: 'number' },
-      { key: 'unit', value: '小时', type: 'text' },
-      { key: 'startTime', value: '09:00', type: 'text' },
-      { key: 'workdaysOnly', value: 'true', type: 'boolean' }
-    ],
-    conditions: []
-  },
-  {
-    id: 2,
-    name: '用户操作响应',
-    description: '响应用户的特定操作事件，自动触发状态转换',
-    triggerType: '事件触发器',
-    category: 'event',
-    enabled: true,
-    system: true,
-    usageCount: 8,
-    lastTriggered: new Date('2024-06-07'),
-    successRate: 88,
-    createdAt: new Date('2024-02-01'),
-    parameters: {
-      eventType: '用户操作',
-      eventName: 'task_completed',
-      timeout: '300'
-    },
-    parametersList: [
-      { key: 'eventType', value: '用户操作', type: 'text' },
-      { key: 'eventName', value: 'task_completed', type: 'text' },
-      { key: 'timeout', value: '300', type: 'number' }
-    ],
-    conditions: []
-  },
-  {
-    id: 3,
     name: '高优先级任务检查',
     description: '检查任务优先级和进度，当高优先级任务完成度达标时自动转换',
-    triggerType: '条件触发器',
     category: 'condition',
     enabled: true,
     system: false,
@@ -449,10 +383,9 @@ const triggerInstances = ref([
     ]
   },
   {
-    id: 4,
+    id: 2,
     name: '截止日期预警',
     description: '监控任务截止日期，在临近时自动触发预警转换',
-    triggerType: '条件触发器',
     category: 'time',
     enabled: false,
     system: false,
@@ -478,7 +411,6 @@ const triggerInstances = ref([
 const currentInstance = ref({
   name: '',
   description: '',
-  triggerType: '',
   category: '',
   enabled: true,
   system: false,
@@ -492,9 +424,6 @@ const formRules = {
   name: [
     { required: true, message: '请输入触发器实例名称', trigger: 'blur' },
     { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
-  ],
-  triggerType: [
-    { required: true, message: '请选择触发器类型', trigger: 'change' }
   ],
   category: [
     { required: true, message: '请选择分类', trigger: 'change' }
@@ -533,9 +462,7 @@ const filteredInstances = computed(() => {
 // 方法
 const getCategoryName = (category) => {
   const names = {
-    'time': '时间类',
-    'event': '事件类',
-    'condition': '条件类',
+    'condition': '系统预设',
     'custom': '自定义'
   }
   return names[category] || category
@@ -686,7 +613,6 @@ const resetForm = () => {
   currentInstance.value = {
     name: '',
     description: '',
-    triggerType: '',
     category: '',
     enabled: true,
     system: false,

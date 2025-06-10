@@ -6,6 +6,7 @@
       <div class="machine-tools">
         <el-button size="small" :icon="Plus" @click="addStatus">添加状态</el-button>
         <el-button size="small" :icon="Refresh" @click="autoLayout">自动布局</el-button>
+        <el-button size="small" :icon="Setting" @click="showTriggerManagement = true">触发器管理</el-button>
       </div>
     </div>
 
@@ -238,6 +239,17 @@
         <el-button type="primary" @click="saveStatus">保存</el-button>
       </template>
     </el-dialog>
+    <el-dialog
+        v-model="showTriggerManagement"
+        title="触发器管理"
+        width="800px"
+        destroy-on-close
+    >
+      <TriggerManagement ref="triggerManagementRef" />
+      <template #footer>
+        <el-button @click="showTriggerManagement = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -247,7 +259,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Close } from '@element-plus/icons-vue'
 import StateNode from './StateNode.vue'
 import TransitionEditor from './TransitionEditor.vue'
-
+import TriggerManagement from './TriggerManagement.vue'
 // Props
 const props = defineProps({
   statuses: {
@@ -275,7 +287,8 @@ const mousePos = ref({ x: 0, y: 0 })
 const isConnecting = ref(false)
 const connectSource = ref(null)
 const highlightTarget = ref(null)
-
+const showTriggerManagement = ref(false)
+const triggerManagementRef = ref(null)
 // 拖拽连线相关
 const isDraggingArrow = ref(false)
 const isDraggingTail = ref(false) // 箭尾拖拽状态

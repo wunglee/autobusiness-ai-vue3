@@ -11,6 +11,7 @@
       :style="nodeStyle"
       @mousedown="handleMouseDown"
       @click="handleClick"
+      ref="nodeRef"
   >
     <!-- 状态图标 -->
     <div class="state-icon">
@@ -66,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { VideoPause, VideoPlay, Operation, Edit, Delete, Connection } from '@element-plus/icons-vue'
 
@@ -91,10 +92,15 @@ const emit = defineEmits(['select', 'move', 'edit', 'delete', 'start-connect', '
 
 // 响应式数据
 const isDragging = ref(false)
-const dragStartPos = ref({ x: 0, y: 0 })
-const dragCurrentPos = ref({ x: 0, y: 0 })
-const dragOffset = ref({ x: 0, y: 0 })
 const nodeRef = ref(null)
+const dragGhostStyle = ref({
+  left: '0px',
+  top: '0px',
+  display: 'none'
+})
+
+// 存储拖拽相关数据
+let dragData = null
 
 // 计算样式
 const nodeStyle = computed(() => ({
@@ -102,13 +108,8 @@ const nodeStyle = computed(() => ({
   top: `${props.status.position.y}px`,
   backgroundColor: props.status.color || '#409eff',
   borderColor: props.selected ? '#409eff' : 'transparent',
-  cursor: isDragging.value ? 'grabbing' : 'grab'
-}))
-
-const dragGhostStyle = computed(() => ({
-  left: `${dragCurrentPos.value.x}px`,
-  top: `${dragCurrentPos.value.y}px`,
-  backgroundColor: props.status.color + '80' || '#409eff80'
+  cursor: isDragging.value ? 'grabbing' : 'grab',
+  zIndex: isDragging.value ? 100 : 10
 }))
 
 // 检查是否是唯一的初始状态
@@ -123,68 +124,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('mouseup', handleMouseUp)
 })
 
-// 拖拽事件处理
-const handleMouseMove = (e) => {
-  if (!isDragging.value) return
-
-  // 计算相对于画布的新位置
-  const parentRect = nodeRef.value.parentElement.getBoundingClientRect()
-  const newX = e.clientX - parentRect.left - dragOffset.value.x
-  const newY = e.clientY - parentRect.top - dragOffset.value.y
-
-  // 更新虚框位置
-  dragCurrentPos.value = {
-    x: Math.max(0, Math.min(newX, parentRect.width - 100)),
-    y: Math.max(0, Math.min(newY, parentRect.height - 60))
-  }
-}
-
-const handleMouseUp = () => {
-  if (!isDragging.value) return
-
-  // 结束拖拽
-  isDragging.value = false
-  document.removeEventListener('mousemove', handleMouseMove)
-  document.removeEventListener('mouseup', handleMouseUp)
-
-  // 检查并处理位置冲突
-  const finalPosition = checkAndResolveConflicts(dragCurrentPos.value)
-
-  // 更新实际位置
-  emit('move', props.status, finalPosition)
-}
-
-// 方法
-const handleMouseDown = (event) => {
-  // 如果点击的是操作按钮，不处理拖拽
-  if (event.target.closest('.floating-actions')) return
-
-  event.preventDefault()
-  event.stopPropagation()
-
-  // 开始拖拽
-  isDragging.value = true
-  dragStartPos.value = { ...props.status.position }
-  dragCurrentPos.value = { ...props.status.position }
-
-  // 获取节点位置
-  const nodeRect = event.currentTarget.getBoundingClientRect()
-  const parentRect = event.currentTarget.parentElement.getBoundingClientRect()
-
-  // 计算鼠标在节点内的偏移
-  dragOffset.value = {
-    x: event.clientX - nodeRect.left,
-    y: event.clientY - nodeRect.top
-  }
-
-  // 添加全局事件监听
-  document.addEventListener('mousemove', handleMouseMove)
-  document.addEventListener('mouseup', handleMouseUp)
-
-  // 保存节点引用
-  nodeRef.value = event.currentTarget
-}
-
+// 冲突检测方法（在释放时调用）
 const checkAndResolveConflicts = (newPosition) => {
   // 检查与其他状态节点的冲突
   const conflicts = props.allStatuses.filter(s => {
@@ -207,9 +147,12 @@ const checkAndResolveConflicts = (newPosition) => {
       conflict.position.x = newPosition.x + Math.cos(angle) * offsetDistance
       conflict.position.y = newPosition.y + Math.sin(angle) * offsetDistance
 
-      // 确保不超出边界
-      conflict.position.x = Math.max(0, Math.min(conflict.position.x, 800))
-      conflict.position.y = Math.max(0, Math.min(conflict.position.y, 600))
+      // 确保不超出边界（使用实际画布尺寸）
+      const canvasWidth = dragData?.canvasRect?.width || 800
+      const canvasHeight = dragData?.canvasRect?.height || 600
+
+      conflict.position.x = Math.max(0, Math.min(conflict.position.x, canvasWidth - 100))
+      conflict.position.y = Math.max(0, Math.min(conflict.position.y, canvasHeight - 60))
     })
 
     // 通知父组件更新冲突节点
@@ -217,8 +160,111 @@ const checkAndResolveConflicts = (newPosition) => {
 
     ElMessage.success('已自动调整重叠节点位置')
   }
+}
 
-  return newPosition
+// 拖拽事件处理
+const handleMouseMove = (e) => {
+  if (!isDragging.value || !dragData) return
+
+  // 计算鼠标移动距离（相对于起始点）
+  const deltaX = e.clientX - dragData.startMouseX
+  const deltaY = e.clientY - dragData.startMouseY
+
+  // 计算虚框的新位置：初始位置 + 位移
+  const ghostX = dragData.startGhostX + deltaX
+  const ghostY = dragData.startGhostY + deltaY
+
+  // 确保位置在画布范围内
+  const clampedX = Math.max(0, Math.min(ghostX, dragData.canvasRect.width - 100))
+  const clampedY = Math.max(0, Math.min(ghostY, dragData.canvasRect.height - 60))
+
+  // 更新虚框位置
+  dragGhostStyle.value = {
+    left: `${clampedX}px`,
+    top: `${clampedY}px`,
+    backgroundColor: props.status.color + '80' || '#409eff80',
+    border: `2px dashed ${props.status.color || '#409eff'}`,
+    display: 'block'
+  }
+}
+
+const handleMouseUp = (e) => {
+  if (!isDragging.value || !dragData) return
+
+  // 结束拖拽
+  isDragging.value = false
+  document.removeEventListener('mousemove', handleMouseMove)
+  document.removeEventListener('mouseup', handleMouseUp)
+
+  // 计算最终位置
+  const deltaX = e.clientX - dragData.startMouseX
+  const deltaY = e.clientY - dragData.startMouseY
+  const ghostX = dragData.startGhostX + deltaX
+  const ghostY = dragData.startGhostY + deltaY
+
+  const finalPosition = {
+    x: Math.max(0, Math.min(ghostX, dragData.canvasRect.width - 100)),
+    y: Math.max(0, Math.min(ghostY, dragData.canvasRect.height - 60))
+  }
+
+  // 更新实际位置
+  emit('move', props.status, finalPosition)
+
+  // 在释放时进行冲突处理
+  checkAndResolveConflicts(finalPosition)
+
+  // 隐藏虚框
+  dragGhostStyle.value.display = 'none'
+
+  // 清除拖拽数据
+  dragData = null
+}
+
+const handleMouseDown = (event) => {
+  // 如果点击的是操作按钮，不处理拖拽
+  if (event.target.closest('.floating-actions')) return
+
+  event.preventDefault()
+  event.stopPropagation()
+
+  // 开始拖拽
+  isDragging.value = true
+
+  // 获取画布容器的位置
+  const canvas = nodeRef.value.parentElement
+  const canvasRect = canvas.getBoundingClientRect()
+
+  // 获取节点的实际位置（通过DOM）
+  const nodeRect = nodeRef.value.getBoundingClientRect()
+  const ghostX = nodeRect.left - canvasRect.left
+  const ghostY = nodeRect.top - canvasRect.top
+
+  // 记录拖拽数据
+  dragData = {
+    canvasRect: {
+      left: canvasRect.left,
+      top: canvasRect.top,
+      width: canvasRect.width,
+      height: canvasRect.height
+    },
+    startMouseX: event.clientX,
+    startMouseY: event.clientY,
+    startGhostX: ghostX,
+    startGhostY: ghostY
+  }
+
+  // 设置虚框初始位置（使用节点在画布中的实际位置）
+  dragGhostStyle.value = {
+    left: `${ghostX}px`,
+    top: `${ghostY}px`,
+    backgroundColor: props.status.color + '80' || '#409eff80',
+    border: `2px dashed ${props.status.color || '#409eff'}`,
+    display: 'block'
+  }
+
+  // 添加全局事件监听
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
 }
 
 const handleClick = (event) => {
@@ -266,7 +312,7 @@ const handleStartConnect = (event) => {
   justify-content: center;
   cursor: grab;
   z-index: 10;
-  transition: all 0.2s;
+  transition: border-color 0.2s, z-index 0.2s;
 }
 
 .state-node.type-initial {
@@ -325,8 +371,8 @@ const handleStartConnect = (event) => {
   width: 100px;
   height: 60px;
   border-radius: 8px;
-  border: 2px dashed #409eff;
   z-index: 1000;
   pointer-events: none;
+  opacity: 0.8;
 }
 </style>

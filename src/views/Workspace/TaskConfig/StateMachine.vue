@@ -174,39 +174,6 @@
       </div>
     </div>
 
-    <!-- 状态编辑面板 -->
-    <div v-if="selectedStatus" class="status-panel">
-      <div class="panel-header">
-        <h6>状态配置</h6>
-        <el-button type="text" :icon="Close" @click="clearSelection" />
-      </div>
-      <div class="panel-content">
-        <el-form :model="selectedStatus" label-width="80px" size="small">
-          <el-form-item label="状态名称" required>
-            <el-input v-model="selectedStatus.label" @input="updateStatus" />
-          </el-form-item>
-          <el-form-item label="状态类型">
-            <el-select v-model="selectedStatus.type" @change="updateStatus">
-              <el-option label="初始状态" value="initial" />
-              <el-option label="普通状态" value="normal" />
-              <el-option label="最终状态" value="final" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="状态颜色">
-            <el-color-picker v-model="selectedStatus.color" @change="updateStatus" />
-          </el-form-item>
-          <el-form-item label="状态描述">
-            <el-input
-                v-model="selectedStatus.description"
-                type="textarea"
-                :rows="2"
-                @input="updateStatus"
-            />
-          </el-form-item>
-        </el-form>
-      </div>
-    </div>
-
     <!-- 转换规则编辑面板 -->
     <div v-if="selectedTransition" class="transition-panel">
       <div class="panel-header">

@@ -94,7 +94,15 @@
                 class="arrow-drag-area"
                 @mousedown.stop="handleArrowDragStart(transition, $event)"
             />
-
+            <!-- 箭尾可拖拽区域 -->
+            <circle
+                :cx="transition.fromPoint.x"
+                :cy="transition.fromPoint.y"
+                r="10"
+                fill="transparent"
+                class="arrow-tail-area"
+                @mousedown.stop="handleTailDragStart(transition, $event)"
+            />
             <!-- 连接线悬浮操作按钮 -->
             <g
                 v-if="selectedTransition?.id === transition.id"
@@ -270,6 +278,7 @@ const highlightTarget = ref(null)
 
 // 拖拽连线相关
 const isDraggingArrow = ref(false)
+const isDraggingTail = ref(false) // 箭尾拖拽状态
 const draggingTransition = ref(null)
 
 // 对话框相关
@@ -422,12 +431,51 @@ const handleMouseMove = (event) => {
     updateTargetHighlight()
   }
 
-  // 更新拖拽连线
+  // 更新箭头拖拽连线
   if (isDraggingArrow.value && draggingTransition.value) {
     updateDragConnection()
     updateTargetHighlight()
   }
+
+  // 更新箭尾拖拽连线（新增）
+  if (isDraggingTail.value && draggingTransition.value) {
+    updateTailConnection()
+    updateTargetHighlight()
+  }
 }
+
+// 新增：箭尾拖拽连线更新
+const updateTailConnection = () => {
+  if (!draggingTransition.value) return
+
+  const toStatus = localStatuses.value.find(s => s.key === draggingTransition.value.transition.toStatus)
+  if (!toStatus) return
+
+  const targetPos = toStatus.position
+  const targetCenter = { x: targetPos.x + 50, y: targetPos.y + 30 }
+
+  // 使用实线连接
+  tempConnection.value = `M ${mousePos.value.x} ${mousePos.value.y} L ${targetCenter.x} ${targetCenter.y}`
+}
+
+// 新增：箭尾拖拽开始
+const handleTailDragStart = (transitionPath, event) => {
+  event.preventDefault()
+  event.stopPropagation()
+
+  isDraggingTail.value = true
+  draggingTransition.value = transitionPath
+
+  // 更新鼠标位置
+  const rect = canvasRef.value.getBoundingClientRect()
+  mousePos.value = {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  }
+
+  updateTailConnection()
+}
+
 
 const updateTempConnection = () => {
   if (!connectSource.value) return
@@ -509,6 +557,30 @@ const handleMouseUp = () => {
 
     // 结束拖拽
     isDraggingArrow.value = false
+    draggingTransition.value = null
+    tempConnection.value = ''
+    highlightTarget.value = null
+  }
+  // 箭尾拖拽释放（新增）
+  if (isDraggingTail.value) {
+    // 检查是否释放在目标状态上
+    const targetStatus = getTargetStatusAtMouse()
+
+    if (targetStatus && draggingTransition.value) {
+      // 检查目标状态是否改变
+      if (draggingTransition.value.transition.fromStatus !== targetStatus.key) {
+        // 更新连接的起点
+        const transition = draggingTransition.value.transition
+        transition.fromStatus = targetStatus.key
+        transition.name = `${targetStatus.label} → ${localStatuses.value.find(s => s.key === transition.toStatus)?.label}`
+
+        updateTransition(transition)
+        ElMessage.success('连接起点已更新')
+      }
+    }
+
+    // 结束拖拽
+    isDraggingTail.value = false
     draggingTransition.value = null
     tempConnection.value = ''
     highlightTarget.value = null
@@ -877,7 +949,13 @@ const handleStatusKeyInput = (value) => {
 .arrow-drag-area:hover {
   fill: rgba(56, 169, 39,70%);
 }
+.arrow-tail-area {
+  cursor: pointer;
+}
 
+.arrow-tail-area:hover {
+  fill: rgba(56, 169, 39,70%);
+}
 .temp-connection {
   pointer-events: none;
   opacity: 0.8;

@@ -6,7 +6,6 @@
       <div class="machine-tools">
         <el-button size="small" :icon="Plus" @click="addStatus">添加状态</el-button>
         <el-button size="small" :icon="Refresh" @click="autoLayout">自动布局</el-button>
-        <el-button size="small" :icon="Setting" @click="showTriggerManagement">管理触发器</el-button>
       </div>
     </div>
 
@@ -84,36 +83,35 @@
                 ]"
                 :marker-end="selectedTransition?.id === transition.id ?
                   'url(#arrowhead-active)' : 'url(#arrowhead)'"
-                @click.stop="selectTransition(transition.transition)"
+                @click="selectTransition(transition)"
             />
 
-            <!-- 箭头拖拽区域 -->
+            <!-- 可拖拽的箭头 -->
             <circle
-                :cx="transition.midPoint.x"
-                :cy="transition.midPoint.y"
+                :cx="transition.toPoint.x"
+                :cy="transition.toPoint.y"
                 r="8"
                 fill="transparent"
                 class="arrow-drag-area"
                 @mousedown.stop="handleArrowDragStart(transition, $event)"
-                style="cursor: grab;"
             />
 
-            <!-- 转换操作按钮 -->
+            <!-- 连接线悬浮操作按钮 -->
             <g
                 v-if="hoveredTransition?.id === transition.id"
                 class="transition-actions"
+                :transform="`translate(${transition.midPoint.x}, ${transition.midPoint.y})`"
             >
-              <!-- 编辑按钮 -->
-              <g :transform="`translate(${transition.midPoint.x - 12}, ${transition.midPoint.y - 12})`">
-                <rect
-                    x="0"
-                    y="0"
-                    width="12"
-                    height="12"
-                    fill="#409eff"
-                    rx="2"
-                    class="action-background"
-                />
+              <circle
+                  cx="0"
+                  cy="0"
+                  r="20"
+                  fill="white"
+                  stroke="#e4e7ed"
+                  stroke-width="1"
+                  class="action-background"
+              />
+              <g transform="translate(-12, -6)">
                 <rect
                     x="0"
                     y="0"
@@ -124,25 +122,12 @@
                     @click.stop="editTransition(transition.transition)"
                 />
                 <path
-                    d="M3 6 L6 3 L9 6 M6 3 L6 9"
-                    stroke="white"
-                    stroke-width="1"
-                    stroke-linecap="round"
+                    d="M2 7 L6 3 L8 5 L4 9 L2 9 Z"
+                    fill="#409eff"
                     pointer-events="none"
                 />
               </g>
-
-              <!-- 删除按钮 -->
-              <g :transform="`translate(${transition.midPoint.x + 4}, ${transition.midPoint.y - 12})`">
-                <rect
-                    x="0"
-                    y="0"
-                    width="12"
-                    height="12"
-                    fill="#f56c6c"
-                    rx="2"
-                    class="action-background"
-                />
+              <g transform="translate(2, -6)">
                 <rect
                     x="0"
                     y="0"
@@ -154,7 +139,7 @@
                 />
                 <path
                     d="M3 3 L9 9 M9 3 L3 9"
-                    stroke="white"
+                    stroke="#f56c6c"
                     stroke-width="1.5"
                     stroke-linecap="round"
                     pointer-events="none"
@@ -279,29 +264,15 @@
         <el-button type="primary" @click="saveStatus">保存</el-button>
       </template>
     </el-dialog>
-
-    <!-- 触发器管理对话框 -->
-    <el-dialog
-        v-model="showTriggerDialog"
-        title="触发器管理"
-        width="1200px"
-        :close-on-click-modal="false"
-    >
-      <TriggerManagement />
-      <template #footer>
-        <el-button @click="showTriggerDialog = false">关闭</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Close, Setting } from '@element-plus/icons-vue'
+import { Plus, Refresh, Close } from '@element-plus/icons-vue'
 import StateNode from './StateNode.vue'
 import TransitionEditor from './TransitionEditor.vue'
-import TriggerManagement from './TriggerManagement.vue'
 
 // Props
 const props = defineProps({
@@ -337,7 +308,6 @@ const draggingTransition = ref(null)
 
 // 对话框相关
 const showStatusDialog = ref(false)
-const showTriggerDialog = ref(false)
 const editingStatus = ref(null)
 const statusForm = ref({
   key: '',
@@ -401,7 +371,6 @@ const calculateConnectionPath = (fromStatus, toStatus) => {
     height: 60
   }
 
-  // 计算两个矩形的中心点
   const fromCenter = {
     x: fromRect.x + fromRect.width / 2,
     y: fromRect.y + fromRect.height / 2
@@ -412,43 +381,41 @@ const calculateConnectionPath = (fromStatus, toStatus) => {
     y: toRect.y + toRect.height / 2
   }
 
-  // 计算连接点
-  const fromPoint = getConnectionPoint(fromRect, toCenter)
-  const toPoint = getConnectionPoint(toRect, fromCenter)
+  // 计算最佳连接边
+  const dx = toCenter.x - fromCenter.x
+  const dy = toCenter.y - fromCenter.y
 
-  // 生成路径
+  let fromPoint, toPoint
+
+  // 优先使用直线连接
+  if (Math.abs(dx) > Math.abs(dy)) {
+    // 水平连接
+    if (dx > 0) {
+      // 从右到左
+      fromPoint = { x: fromRect.x + fromRect.width, y: fromCenter.y }
+      toPoint = { x: toRect.x, y: toCenter.y }
+    } else {
+      // 从左到右
+      fromPoint = { x: fromRect.x, y: fromCenter.y }
+      toPoint = { x: toRect.x + toRect.width, y: toCenter.y }
+    }
+  } else {
+    // 垂直连接
+    if (dy > 0) {
+      // 从下到上
+      fromPoint = { x: fromCenter.x, y: fromRect.y + fromRect.height }
+      toPoint = { x: toCenter.x, y: toRect.y }
+    } else {
+      // 从上到下
+      fromPoint = { x: fromCenter.x, y: fromRect.y }
+      toPoint = { x: toCenter.x, y: toRect.y + toRect.height }
+    }
+  }
+
+  // 生成路径（优先直线）
   const path = `M ${fromPoint.x} ${fromPoint.y} L ${toPoint.x} ${toPoint.y}`
 
   return { fromPoint, toPoint, path }
-}
-
-// 计算矩形与外部点的连接点
-const getConnectionPoint = (rect, externalPoint) => {
-  const centerX = rect.x + rect.width / 2
-  const centerY = rect.y + rect.height / 2
-
-  const dx = externalPoint.x - centerX
-  const dy = externalPoint.y - centerY
-
-  // 计算角度
-  const angle = Math.atan2(dy, dx)
-
-  // 根据角度确定连接边
-  const absAngle = Math.abs(angle)
-
-  if (absAngle < Math.PI / 4) {
-    // 右边
-    return { x: rect.x + rect.width, y: centerY }
-  } else if (absAngle > 3 * Math.PI / 4) {
-    // 左边
-    return { x: rect.x, y: centerY }
-  } else if (angle > 0) {
-    // 下边
-    return { x: centerX, y: rect.y + rect.height }
-  } else {
-    // 上边
-    return { x: centerX, y: rect.y }
-  }
 }
 
 // 监听props变化
@@ -461,207 +428,17 @@ watch(() => props.transitions, (newTransitions) => {
 }, { deep: true })
 
 // 方法
-const addStatus = () => {
-  editingStatus.value = null
-  statusForm.value = {
-    key: '',
-    label: '',
-    type: 'normal',
-    color: '#409eff',
-    description: '',
-    position: { x: 100, y: 100 }
-  }
-  showStatusDialog.value = true
-}
-
-const editStatus = (status) => {
-  editingStatus.value = status
-  statusForm.value = { ...status }
-  showStatusDialog.value = true
-}
-
-const saveStatus = () => {
-  if (!statusForm.value.label || !statusForm.value.key) {
-    ElMessage.error('请填写状态名称和键名')
-    return
-  }
-
-  // 检查键名是否重复
-  const exists = localStatuses.value.some(s =>
-      s.key === statusForm.value.key &&
-      (!editingStatus.value || s.key !== editingStatus.value.key)
-  )
-
-  if (exists) {
-    ElMessage.error('状态键名已存在')
-    return
-  }
-
-  if (editingStatus.value) {
-    // 编辑现有状态
-    const index = localStatuses.value.findIndex(s => s.key === editingStatus.value.key)
-    if (index > -1) {
-      localStatuses.value[index] = { ...statusForm.value }
-    }
-  } else {
-    // 添加新状态
-    const newPosition = findAvailablePosition()
-    statusForm.value.position = newPosition
-    localStatuses.value.push({ ...statusForm.value })
-  }
-
-  emit('update-statuses', localStatuses.value)
-  showStatusDialog.value = false
-  ElMessage.success('状态保存成功')
-}
-
-const deleteStatus = async (status) => {
-  // 检查是否有转换使用此状态
-  const hasConnections = localTransitions.value.some(t =>
-      t.fromStatus === status.key || t.toStatus === status.key
-  )
-
-  if (hasConnections) {
-    ElMessage.error('此状态被转换规则使用，请先删除相关转换')
-    return
-  }
-
-  try {
-    await ElMessageBox.confirm(
-        `确定要删除状态"${status.label}"吗？`,
-        '删除确认',
-        { type: 'warning' }
-    )
-
-    localStatuses.value = localStatuses.value.filter(s => s.key !== status.key)
-    emit('update-statuses', localStatuses.value)
-    clearSelection()
-    ElMessage.success('状态已删除')
-  } catch {
-    // 用户取消删除
-  }
-}
-
-const findAvailablePosition = () => {
-  const positions = localStatuses.value.map(s => s.position)
-  let x = 100, y = 100
-  let attempts = 0
-  const maxAttempts = 100
-
-  while (attempts < maxAttempts) {
-    const conflict = positions.some(pos =>
-        Math.abs(pos.x - x) < 120 && Math.abs(pos.y - y) < 80
-    )
-
-    if (!conflict) {
-      return { x, y }
-    }
-
-    x += 120
-    if (x > 800) {
-      x = 100
-      y += 80
-    }
-
-    attempts++
-  }
-
-  return { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 }
-}
-
-const autoLayout = () => {
-  // 简单的自动布局算法
-  const statusCount = localStatuses.value.length
-  if (statusCount === 0) return
-
-  const cols = Math.ceil(Math.sqrt(statusCount))
-  const spacing = 150
-
-  localStatuses.value.forEach((status, index) => {
-    const row = Math.floor(index / cols)
-    const col = index % cols
-
-    status.position = {
-      x: 50 + col * spacing,
-      y: 50 + row * 120
-    }
-  })
-
-  emit('update-statuses', localStatuses.value)
-  ElMessage.success('布局已更新')
-}
-
-const handleStatusKeyInput = (value) => {
-  // 自动转换为小写，替换空格为下划线
-  statusForm.value.key = value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
-}
-
-const clearSelection = () => {
-  selectedStatus.value = null
-  selectedTransition.value = null
-}
-
 const handleCanvasClick = (event) => {
-  // 只有点击空白区域才清除选择
   if (event.target === canvasRef.value) {
     clearSelection()
-  }
-}
-
-const selectTransition = (transition) => {
-  selectedTransition.value = transition
-  selectedStatus.value = null
-}
-
-const editTransition = (transition) => {
-  selectedTransition.value = transition
-  selectedStatus.value = null
-}
-
-const updateTransition = (transition) => {
-  const index = localTransitions.value.findIndex(t => t.id === transition.id)
-  if (index > -1) {
-    localTransitions.value[index] = transition
-    emit('update-transitions', localTransitions.value)
-  }
-}
-
-const deleteTransition = (transitionId) => {
-  localTransitions.value = localTransitions.value.filter(t => t.id !== transitionId)
-  emit('update-transitions', localTransitions.value)
-  clearSelection()
-}
-
-const deleteTransitionConfirm = async (transition) => {
-  try {
-    await ElMessageBox.confirm(
-        `确定要删除转换"${transition.name}"吗？`,
-        '删除确认',
-        { type: 'warning' }
-    )
-    deleteTransition(transition.id)
-    ElMessage.success('转换已删除')
-  } catch {
-    // 用户取消删除
-  }
-}
-
-const updateStatus = () => {
-  if (selectedStatus.value) {
-    const index = localStatuses.value.findIndex(s => s.key === selectedStatus.value.key)
-    if (index > -1) {
-      localStatuses.value[index] = { ...selectedStatus.value }
-      emit('update-statuses', localStatuses.value)
+    if (isConnecting.value) {
+      // 取消连接
+      isConnecting.value = false
+      connectSource.value = null
+      tempConnection.value = ''
+      highlightTarget.value = null
     }
   }
-}
-
-const handleTransitionMouseEnter = (transition, event) => {
-  hoveredTransition.value = transition
-}
-
-const handleTransitionMouseLeave = () => {
-  hoveredTransition.value = null
 }
 
 const handleMouseMove = (event) => {
@@ -853,17 +630,195 @@ const handleConnectStatus = (targetStatus) => {
     name: `${connectSource.value.label} → ${targetStatus.label}`,
     fromStatus: connectSource.value.key,
     toStatus: targetStatus.key,
-    triggerInstances: [],
-    description: ''
+    triggers: [],
+    actions: []
   }
 
   localTransitions.value.push(newTransition)
   emit('update-transitions', localTransitions.value)
-  ElMessage.success('转换已创建')
+
+  ElMessage.success('转换规则已创建')
 }
 
-const showTriggerManagement = () => {
-  showTriggerDialog.value = true
+const handleTransitionMouseEnter = (transitionPath, event) => {
+  hoveredTransition.value = transitionPath
+}
+
+const handleTransitionMouseLeave = () => {
+  hoveredTransition.value = null
+}
+
+const editTransition = (transition) => {
+  selectedTransition.value = transition
+  selectedStatus.value = null
+}
+
+const deleteTransitionConfirm = async (transition) => {
+  try {
+    await ElMessageBox.confirm(
+        `确定要删除转换规则"${transition.name}"吗？`,
+        '删除确认',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning',
+        }
+    )
+    deleteTransition(transition.id)
+  } catch {
+    // 用户取消删除
+  }
+}
+
+const addStatus = () => {
+  editingStatus.value = null
+  statusForm.value = {
+    key: '',
+    label: '',
+    type: 'normal',
+    color: '#409eff',
+    description: '',
+    position: { x: 100 + localStatuses.value.length * 50, y: 100 }
+  }
+  showStatusDialog.value = true
+}
+
+const editStatus = (status) => {
+  editingStatus.value = status
+  statusForm.value = { ...status }
+  showStatusDialog.value = true
+}
+
+const deleteStatus = async (status) => {
+  try {
+    await ElMessageBox.confirm(
+        `确定要删除状态"${status.label}"吗？这将同时删除相关的所有转换规则。`,
+        '删除确认',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning',
+        }
+    )
+
+    // 删除状态
+    const statusIndex = localStatuses.value.findIndex(s => s.key === status.key)
+    if (statusIndex > -1) {
+      localStatuses.value.splice(statusIndex, 1)
+    }
+
+    // 删除相关的转换规则
+    localTransitions.value = localTransitions.value.filter(t =>
+        t.fromStatus !== status.key && t.toStatus !== status.key
+    )
+
+    emit('update-statuses', localStatuses.value)
+    emit('update-transitions', localTransitions.value)
+
+    if (selectedStatus.value?.key === status.key) {
+      selectedStatus.value = null
+    }
+
+    ElMessage.success('状态已删除')
+  } catch {
+    // 用户取消删除
+  }
+}
+
+const saveStatus = () => {
+  if (!statusForm.value.label.trim()) {
+    ElMessage.error('请输入状态名称')
+    return
+  }
+
+  if (!statusForm.value.key.trim()) {
+    ElMessage.error('请输入状态键名')
+    return
+  }
+
+  // 检查键名是否重复
+  const existingStatus = localStatuses.value.find(s =>
+      s.key === statusForm.value.key && s.key !== editingStatus.value?.key
+  )
+
+  if (existingStatus) {
+    ElMessage.error('状态键名已存在')
+    return
+  }
+
+  if (editingStatus.value) {
+    // 编辑现有状态
+    const index = localStatuses.value.findIndex(s => s.key === editingStatus.value.key)
+    if (index > -1) {
+      localStatuses.value[index] = { ...statusForm.value }
+    }
+  } else {
+    // 创建新状态
+    localStatuses.value.push({ ...statusForm.value })
+  }
+
+  emit('update-statuses', localStatuses.value)
+  showStatusDialog.value = false
+
+  ElMessage.success(editingStatus.value ? '状态已更新' : '状态已创建')
+}
+
+const updateStatus = () => {
+  if (selectedStatus.value) {
+    emit('update-statuses', localStatuses.value)
+  }
+}
+
+const selectTransition = (transitionPath) => {
+  selectedTransition.value = transitionPath.transition
+  selectedStatus.value = null
+}
+
+const updateTransition = (updatedTransition) => {
+  const index = localTransitions.value.findIndex(t => t.id === updatedTransition.id)
+  if (index > -1) {
+    localTransitions.value[index] = updatedTransition
+    emit('update-transitions', localTransitions.value)
+  }
+}
+
+const deleteTransition = (transitionId) => {
+  const index = localTransitions.value.findIndex(t => t.id === transitionId)
+  if (index > -1) {
+    localTransitions.value.splice(index, 1)
+    emit('update-transitions', localTransitions.value)
+    selectedTransition.value = null
+    ElMessage.success('转换规则已删除')
+  }
+}
+
+const autoLayout = () => {
+  // 改进的自动布局算法
+  const cols = Math.ceil(Math.sqrt(localStatuses.value.length))
+  const spacing = { x: 150, y: 120 }
+  const startPos = { x: 50, y: 50 }
+
+  localStatuses.value.forEach((status, index) => {
+    const row = Math.floor(index / cols)
+    const col = index % cols
+
+    status.position = {
+      x: startPos.x + col * spacing.x,
+      y: startPos.y + row * spacing.y
+    }
+  })
+
+  emit('update-statuses', localStatuses.value)
+  ElMessage.success('布局已更新')
+}
+
+const clearSelection = () => {
+  selectedStatus.value = null
+  selectedTransition.value = null
+}
+
+const handleStatusKeyInput = (value) => {
+  statusForm.value.key = value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase()
 }
 </script>
 
@@ -871,55 +826,52 @@ const showTriggerManagement = () => {
 .state-machine {
   display: flex;
   flex-direction: column;
-  height: 600px;
-  background: #fafbfc;
+  height: 100%;
+  max-width: 1200px;
 }
 
 .machine-header {
-  padding: 20px;
-  background: white;
-  border-bottom: 1px solid #e4e7ed;
+  margin-bottom: 16px;
 }
 
 .section-title {
-  margin: 0 0 8px 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #303133;
+  margin: 0 0 8px 0;
 }
 
 .section-desc {
-  margin: 0 0 16px 0;
   font-size: 14px;
-  color: #606266;
+  color: #909399;
+  margin: 0 0 12px 0;
   line-height: 1.5;
 }
 
 .machine-tools {
   display: flex;
-  gap: 12px;
+  gap: 8px;
 }
 
 .machine-canvas-container {
   flex: 1;
   position: relative;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
   overflow: hidden;
+  min-height: 400px;
 }
 
 .machine-canvas {
   width: 100%;
   height: 100%;
   position: relative;
-  background: linear-gradient(
-      90deg,
-      rgba(0, 0, 0, 0.03) 1px,
-      transparent 1px
-  ),
-  linear-gradient(
-      rgba(0, 0, 0, 0.03) 1px,
-      transparent 1px
-  );
-  background-size: 20px 20px;
+  background:
+      radial-gradient(circle, #e0e0e0 1px, transparent 1px),
+      linear-gradient(0deg, transparent 24px, #f0f0f0 25px, #f0f0f0 26px, transparent 27px),
+      linear-gradient(90deg, transparent 24px, #f0f0f0 25px, #f0f0f0 26px, transparent 27px);
+  background-size: 25px 25px;
+  background-position: 0 0, 0 0, 0 0;
   cursor: default;
 }
 
@@ -931,16 +883,23 @@ const showTriggerManagement = () => {
   z-index: 1;
 }
 
-.transition-path {
-  stroke: #909399;
-  stroke-width: 2;
-  fill: none;
-  cursor: pointer;
-  pointer-events: stroke;
-  transition: stroke 0.2s;
+.transition-group {
+  pointer-events: all;
 }
 
-.transition-path:hover,
+.transition-path {
+  fill: none;
+  stroke: #909399;
+  stroke-width: 2;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.transition-path:hover {
+  stroke: #409eff;
+  stroke-width: 3;
+}
+
 .transition-path.selected {
   stroke: #409eff;
   stroke-width: 3;

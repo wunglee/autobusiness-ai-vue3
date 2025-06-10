@@ -10,6 +10,7 @@
       ]"
       :style="nodeStyle"
       @mousedown="handleMouseDown"
+      @click="handleClick"
       ref="nodeRef"
   >
     <!-- 状态图标 -->
@@ -111,38 +112,53 @@ const nodeStyle = computed(() => ({
   zIndex: isDragging.value ? 100 : 10
 }))
 
-// 计算是否是唯一的初始状态
+// 检查是否是唯一的初始状态
 const isOnlyInitial = computed(() => {
-  const initialStates = props.allStatuses.filter(s => s.type === 'initial')
-  return initialStates.length === 1 && props.status.type === 'initial'
+  if (props.status.type !== 'initial') return false
+  return props.allStatuses.filter(s => s.type === 'initial').length === 1
 })
 
-// 处理冲突检测
+// 清理事件监听
+onBeforeUnmount(() => {
+  document.removeEventListener('mousemove', handleMouseMove)
+  document.removeEventListener('mouseup', handleMouseUp)
+})
+
+// 冲突检测方法（在释放时调用）
 const checkAndResolveConflicts = (newPosition) => {
-  const conflicts = []
+  // 检查与其他状态节点的冲突
+  const conflicts = props.allStatuses.filter(s => {
+    if (s.key === props.status.key) return false
 
-  props.allStatuses.forEach(status => {
-    if (status.key !== props.status.key) {
-      const distance = Math.sqrt(
-          Math.pow(newPosition.x - status.position.x, 2) +
-          Math.pow(newPosition.y - status.position.y, 2)
-      )
+    const distance = Math.sqrt(
+        Math.pow(s.position.x - newPosition.x, 2) +
+        Math.pow(s.position.y - newPosition.y, 2)
+    )
 
-      if (distance < 120) {
-        conflicts.push({
-          status,
-          distance,
-          newPosition: {
-            x: status.position.x + (distance < 60 ? 120 : 110),
-            y: status.position.y + (distance < 60 ? 20 : 0)
-          }
-        })
-      }
-    }
+    return distance < 120 // 如果距离小于120像素则认为冲突
   })
 
   if (conflicts.length > 0) {
+    // 自动调整冲突节点的位置
+    conflicts.forEach((conflict, index) => {
+      const angle = (index * 90) * (Math.PI / 180) // 每个冲突节点偏移不同角度
+      const offsetDistance = 150
+
+      conflict.position.x = newPosition.x + Math.cos(angle) * offsetDistance
+      conflict.position.y = newPosition.y + Math.sin(angle) * offsetDistance
+
+      // 确保不超出边界（使用实际画布尺寸）
+      const canvasWidth = dragData?.canvasRect?.width || 800
+      const canvasHeight = dragData?.canvasRect?.height || 600
+
+      conflict.position.x = Math.max(0, Math.min(conflict.position.x, canvasWidth - 100))
+      conflict.position.y = Math.max(0, Math.min(conflict.position.y, canvasHeight - 60))
+    })
+
+    // 通知父组件更新冲突节点
     emit('resolve-conflicts', conflicts)
+
+    ElMessage.success('已自动调整重叠节点位置')
   }
 }
 
@@ -154,9 +170,9 @@ const handleMouseMove = (e) => {
   const deltaX = e.clientX - dragData.startMouseX
   const deltaY = e.clientY - dragData.startMouseY
 
-  // 计算虚框的新位置：使用状态节点的当前位置作为基准位置 + 位移
-  const ghostX = props.status.position.x + deltaX
-  const ghostY = props.status.position.y + deltaY
+  // 计算虚框的新位置：初始位置 + 位移
+  const ghostX = dragData.startGhostX + deltaX
+  const ghostY = dragData.startGhostY + deltaY
 
   // 确保位置在画布范围内
   const clampedX = Math.max(0, Math.min(ghostX, dragData.canvasRect.width - 100))
@@ -183,8 +199,8 @@ const handleMouseUp = (e) => {
   // 计算最终位置
   const deltaX = e.clientX - dragData.startMouseX
   const deltaY = e.clientY - dragData.startMouseY
-  const ghostX = props.status.position.x + deltaX
-  const ghostY = props.status.position.y + deltaY
+  const ghostX = dragData.startGhostX + deltaX
+  const ghostY = dragData.startGhostY + deltaY
 
   const finalPosition = {
     x: Math.max(0, Math.min(ghostX, dragData.canvasRect.width - 100)),
@@ -218,6 +234,11 @@ const handleMouseDown = (event) => {
   const canvas = nodeRef.value.parentElement
   const canvasRect = canvas.getBoundingClientRect()
 
+  // 获取节点的实际位置（通过DOM）
+  const nodeRect = nodeRef.value.getBoundingClientRect()
+  const ghostX = nodeRect.left - canvasRect.left
+  const ghostY = nodeRect.top - canvasRect.top
+
   // 记录拖拽数据
   dragData = {
     canvasRect: {
@@ -227,13 +248,15 @@ const handleMouseDown = (event) => {
       height: canvasRect.height
     },
     startMouseX: event.clientX,
-    startMouseY: event.clientY
+    startMouseY: event.clientY,
+    startGhostX: ghostX,
+    startGhostY: ghostY
   }
 
-  // 设置虚框初始位置（使用状态节点的当前位置）
+  // 设置虚框初始位置（使用节点在画布中的实际位置）
   dragGhostStyle.value = {
-    left: `${props.status.position.x}px`,
-    top: `${props.status.position.y}px`,
+    left: `${ghostX}px`,
+    top: `${ghostY}px`,
     backgroundColor: props.status.color + '80' || '#409eff80',
     border: `2px dashed ${props.status.color || '#409eff'}`,
     display: 'block'
@@ -242,9 +265,15 @@ const handleMouseDown = (event) => {
   // 添加全局事件监听
   document.addEventListener('mousemove', handleMouseMove)
   document.addEventListener('mouseup', handleMouseUp)
+}
 
-  // 选中当前状态（移除了原来点击弹出编辑窗口的功能）
-  emit('select', props.status)
+const handleClick = (event) => {
+  event.stopPropagation()
+
+  // 如果不是在拖拽，则选中状态
+  if (!isDragging.value) {
+    emit('select', props.status)
+  }
 }
 
 const handleEdit = () => {

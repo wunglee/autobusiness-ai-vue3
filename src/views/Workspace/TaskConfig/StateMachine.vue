@@ -89,7 +89,7 @@
             <circle
                 :cx="transition.toPoint.x"
                 :cy="transition.toPoint.y"
-                r="8"
+                r="10"
                 fill="transparent"
                 class="arrow-drag-area"
                 @mousedown.stop="handleArrowDragStart(transition, $event)"
@@ -495,13 +495,16 @@ const handleMouseUp = () => {
     const targetStatus = getTargetStatusAtMouse()
 
     if (targetStatus && draggingTransition.value) {
-      // 更新连接的目标
-      const transition = draggingTransition.value.transition
-      transition.toStatus = targetStatus.key
-      transition.name = `${localStatuses.value.find(s => s.key === transition.fromStatus)?.label} → ${targetStatus.label}`
+      // 检查目标状态是否改变
+      if (draggingTransition.value.transition.toStatus !== targetStatus.key) {
+        // 更新连接的目标
+        const transition = draggingTransition.value.transition
+        transition.toStatus = targetStatus.key
+        transition.name = `${localStatuses.value.find(s => s.key === transition.fromStatus)?.label} → ${targetStatus.label}`
 
-      updateTransition(transition)
-      ElMessage.success('连接已更新')
+        updateTransition(transition)
+        ElMessage.success('连接已更新')
+      }
     }
 
     // 结束拖拽
@@ -848,7 +851,7 @@ const handleStatusKeyInput = (value) => {
   top: 0;
   left: 0;
   pointer-events: none;
-  z-index: 1;
+  z-index: 20; /* 从1改为20 */
 }
 
 .transition-group {
@@ -859,13 +862,7 @@ const handleStatusKeyInput = (value) => {
   fill: none;
   stroke: #909399;
   stroke-width: 2;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.transition-path:hover {
-  stroke: #409eff;
-  stroke-width: 3;
+  cursor: default;
 }
 
 .transition-path.selected {
@@ -874,12 +871,11 @@ const handleStatusKeyInput = (value) => {
 }
 
 .arrow-drag-area {
-  cursor: grab;
-  transition: all 0.2s;
+  cursor: pointer;
 }
 
 .arrow-drag-area:hover {
-  fill: rgba(64, 158, 255, 0.3);
+  fill: rgba(56, 169, 39,70%);
 }
 
 .temp-connection {

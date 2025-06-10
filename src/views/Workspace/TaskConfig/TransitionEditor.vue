@@ -31,18 +31,18 @@
         </el-form>
       </div>
 
-      <!-- 触发器实例配置 -->
+      <!-- 配置触发器 -->
       <div class="form-section">
         <div class="section-header">
-          <h6 class="section-title">触发器实例</h6>
-          <p class="section-desc">配置多个触发器实例，每个实例基于前一个状态的属性值进行条件判断</p>
+          <h6 class="section-title">配置触发器</h6>
+          <p class="section-desc">选择预设的触发器类型并配置具体参数</p>
           <el-button
               size="small"
               type="primary"
               :icon="Plus"
               @click="addTriggerInstance"
           >
-            添加实例
+            添加配置
           </el-button>
         </div>
 
@@ -57,34 +57,29 @@
                 <el-tag :type="getTriggerTypeColor(instance.triggerType)" size="small">
                   {{ getTriggerTypeName(instance.triggerType) }}
                 </el-tag>
-                <span class="instance-name">{{ instance.name || `触发器实例 ${index + 1}` }}</span>
-                <el-switch
-                    v-model="instance.enabled"
-                    size="small"
-                    active-text="启用"
-                    inactive-text="禁用"
-                    @change="handleChange"
-                />
+                <span class="instance-name">{{ instance.name }}</span>
+                <el-tag v-if="!instance.enabled" size="small" type="info">已禁用</el-tag>
               </div>
               <div class="instance-actions">
                 <el-button
-                    type="text"
                     size="small"
                     :icon="Edit"
                     @click="editTriggerInstance(index)"
+                    title="编辑配置"
                 />
                 <el-button
-                    type="text"
                     size="small"
+                    type="danger"
                     :icon="Delete"
                     @click="deleteTriggerInstance(index)"
+                    title="删除配置"
                 />
               </div>
             </div>
 
             <div class="instance-details">
               <div class="trigger-conditions">
-                <h6>触发条件 (基于状态"{{ fromStatus?.label }}"的属性)</h6>
+                <h6>触发条件</h6>
                 <div v-if="instance.conditions && instance.conditions.length > 0" class="conditions-list">
                   <div
                       v-for="(condition, condIndex) in instance.conditions"
@@ -93,17 +88,9 @@
                   >
                     <el-tag size="small" effect="plain">
                       {{ getAttributeLabel(condition.attribute) }}
-                      {{ getOperatorSymbol(condition.operator) }}
-                      "{{ condition.value }}"
                     </el-tag>
-                    <el-tag
-                        v-if="condIndex < instance.conditions.length - 1"
-                        size="small"
-                        type="info"
-                        effect="plain"
-                    >
-                      {{ instance.logicOperator || 'AND' }}
-                    </el-tag>
+                    <span class="operator">{{ getOperatorSymbol(condition.operator) }}</span>
+                    <el-tag size="small" type="success">{{ condition.value }}</el-tag>
                   </div>
                 </div>
                 <div v-else class="no-conditions">
@@ -140,11 +127,11 @@
 
         <div v-else class="empty-instances">
           <el-empty
-              description="暂无触发器实例"
+              description="暂无触发器配置"
               :image-size="60"
           >
             <el-button type="primary" :icon="Plus" @click="addTriggerInstance">
-              添加第一个触发器实例
+              添加第一个触发器配置
             </el-button>
           </el-empty>
         </div>
@@ -160,25 +147,49 @@
       </el-button>
     </div>
 
-    <!-- 触发器实例编辑对话框 -->
+    <!-- 触发器配置对话框 -->
     <el-dialog
         v-model="showInstanceDialog"
-        :title="editingInstanceIndex !== null ? '编辑触发器实例' : '添加触发器实例'"
+        :title="editingInstanceIndex !== null ? '编辑触发器配置' : '配置触发器'"
         width="700px"
     >
       <div class="instance-editor">
-        <el-form :model="instanceForm" label-width="100px">
-          <el-form-item label="实例名称" required>
-            <el-input v-model="instanceForm.name" placeholder="请输入触发器实例名称" />
+        <el-form :model="instanceForm" label-width="120px">
+          <el-form-item label="配置名称" required>
+            <el-input v-model="instanceForm.name" placeholder="请输入触发器配置名称" />
           </el-form-item>
 
-          <el-form-item label="触发器类型" required>
-            <el-select v-model="instanceForm.triggerType" placeholder="选择触发器类型">
-              <el-option label="条件触发" value="condition" />
-              <el-option label="时间触发" value="time" />
-              <el-option label="事件触发" value="event" />
-              <el-option label="手动触发" value="manual" />
-            </el-select>
+          <el-form-item label="候选触发器" required>
+            <div class="trigger-selector">
+              <el-checkbox-group v-model="instanceForm.selectedTriggers">
+                <div class="trigger-options">
+                  <div
+                      v-for="trigger in availableTriggers"
+                      :key="trigger.id"
+                      class="trigger-option"
+                  >
+                    <el-checkbox :label="trigger.id">
+                      <div class="trigger-card">
+                        <div class="trigger-header">
+                          <span class="trigger-icon">{{ trigger.icon }}</span>
+                          <span class="trigger-name">{{ trigger.name }}</span>
+                          <el-tag
+                              :type="getTriggerCategoryColor(trigger.category)"
+                              size="small"
+                              effect="plain"
+                          >
+                            {{ getCategoryName(trigger.category) }}
+                          </el-tag>
+                        </div>
+                        <div class="trigger-description">
+                          {{ trigger.description }}
+                        </div>
+                      </div>
+                    </el-checkbox>
+                  </div>
+                </div>
+              </el-checkbox-group>
+            </div>
           </el-form-item>
 
           <el-form-item label="是否启用">
@@ -210,7 +221,7 @@
                 <el-select
                     v-model="condition.attribute"
                     placeholder="选择属性"
-                    style="width: 140px"
+                    style="width: 140px;"
                 >
                   <el-option
                       v-for="attr in fromStateAttributes"
@@ -222,8 +233,8 @@
 
                 <el-select
                     v-model="condition.operator"
-                    placeholder="运算符"
-                    style="width: 100px"
+                    placeholder="操作符"
+                    style="width: 100px;"
                 >
                   <el-option label="等于" value="eq" />
                   <el-option label="不等于" value="ne" />
@@ -239,21 +250,24 @@
 
                 <el-input
                     v-model="condition.value"
-                    placeholder="预期值"
-                    style="flex: 1"
+                    placeholder="值"
+                    style="width: 120px;"
                 />
 
                 <el-button
-                    type="text"
+                    type="danger"
                     :icon="Delete"
                     @click="removeCondition(index)"
+                    title="删除条件"
                 />
               </div>
 
               <el-button
-                  type="text"
+                  type="primary"
                   :icon="Plus"
                   @click="addCondition"
+                  plain
+                  size="small"
               >
                 添加条件
               </el-button>
@@ -280,12 +294,12 @@
             <span style="margin-left: 8px;">分钟</span>
           </el-form-item>
 
-          <el-form-item label="实例描述">
+          <el-form-item label="配置描述">
             <el-input
                 v-model="instanceForm.description"
                 type="textarea"
                 :rows="3"
-                placeholder="请描述触发器实例的作用和条件"
+                placeholder="请描述触发器配置的作用和条件"
             />
           </el-form-item>
         </el-form>
@@ -329,7 +343,7 @@ const showInstanceDialog = ref(false)
 const editingInstanceIndex = ref(null)
 const instanceForm = ref({
   name: '',
-  triggerType: 'condition',
+  selectedTriggers: [],
   enabled: true,
   logicOperator: 'AND',
   conditions: [],
@@ -337,6 +351,34 @@ const instanceForm = ref({
   delayMinutes: 5,
   description: ''
 })
+
+// 可选择的触发器类型（从TriggerManagement.vue中预设的触发器）
+const availableTriggers = ref([
+  {
+    id: 1,
+    name: '定时触发器',
+    description: '基于时间间隔或特定时间点触发状态迁移',
+    category: 'time',
+    icon: '⏰',
+    enabled: true
+  },
+  {
+    id: 2,
+    name: '事件触发器',
+    description: '响应特定事件触发状态迁移',
+    category: 'event',
+    icon: '⚡',
+    enabled: true
+  },
+  {
+    id: 3,
+    name: '条件触发器',
+    description: '基于状态属性条件判断触发状态迁移',
+    category: 'condition',
+    icon: '🎯',
+    enabled: true
+  }
+])
 
 // 计算属性
 const fromStatus = computed(() =>
@@ -398,6 +440,26 @@ const getTriggerTypeColor = (type) => {
   return typeColors[type] || 'info'
 }
 
+const getCategoryName = (category) => {
+  const names = {
+    'time': '时间类',
+    'event': '事件类',
+    'condition': '条件类',
+    'custom': '自定义'
+  }
+  return names[category] || category
+}
+
+const getTriggerCategoryColor = (category) => {
+  const colors = {
+    'time': 'success',
+    'event': 'primary',
+    'condition': 'warning',
+    'custom': 'info'
+  }
+  return colors[category] || 'info'
+}
+
 const getAttributeLabel = (attributeKey) => {
   const attribute = fromStateAttributes.value.find(attr => attr.key === attributeKey)
   return attribute ? attribute.label : attributeKey
@@ -423,7 +485,7 @@ const addTriggerInstance = () => {
   editingInstanceIndex.value = null
   instanceForm.value = {
     name: '',
-    triggerType: 'condition',
+    selectedTriggers: [],
     enabled: true,
     logicOperator: 'AND',
     conditions: [],
@@ -441,13 +503,17 @@ const editTriggerInstance = (index) => {
   if (!instanceForm.value.conditions) {
     instanceForm.value.conditions = []
   }
+  // 确保选中的触发器数组存在
+  if (!instanceForm.value.selectedTriggers) {
+    instanceForm.value.selectedTriggers = []
+  }
   showInstanceDialog.value = true
 }
 
 const deleteTriggerInstance = async (index) => {
   try {
     await ElMessageBox.confirm(
-        '确定要删除这个触发器实例吗？',
+        '确定要删除这个触发器配置吗？',
         '删除确认',
         {
           confirmButtonText: '确定',
@@ -458,7 +524,7 @@ const deleteTriggerInstance = async (index) => {
 
     localTransition.value.triggerInstances.splice(index, 1)
     handleChange()
-    ElMessage.success('触发器实例已删除')
+    ElMessage.success('触发器配置已删除')
   } catch {
     // 用户取消删除
   }
@@ -466,21 +532,26 @@ const deleteTriggerInstance = async (index) => {
 
 const saveTriggerInstance = () => {
   if (!instanceForm.value.name.trim()) {
-    ElMessage.error('请输入触发器实例名称')
+    ElMessage.error('请输入触发器配置名称')
+    return
+  }
+
+  if (instanceForm.value.selectedTriggers.length === 0) {
+    ElMessage.error('请至少选择一个候选触发器')
     return
   }
 
   if (editingInstanceIndex.value !== null) {
-    // 编辑现有实例
+    // 编辑现有配置
     localTransition.value.triggerInstances[editingInstanceIndex.value] = { ...instanceForm.value }
   } else {
-    // 添加新实例
+    // 添加新配置
     localTransition.value.triggerInstances.push({ ...instanceForm.value })
   }
 
   handleChange()
   showInstanceDialog.value = false
-  ElMessage.success(editingInstanceIndex.value !== null ? '触发器实例已更新' : '触发器实例已添加')
+  ElMessage.success(editingInstanceIndex.value !== null ? '触发器配置已更新' : '触发器配置已添加')
 }
 
 const addCondition = () => {
@@ -619,6 +690,11 @@ const saveTransition = () => {
   gap: 4px;
 }
 
+.operator {
+  font-size: 12px;
+  color: #909399;
+}
+
 .no-conditions {
   color: #909399;
   font-size: 12px;
@@ -648,6 +724,61 @@ const saveTransition = () => {
   padding: 0 4px;
 }
 
+.trigger-selector {
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  padding: 12px;
+  background: #fafbfc;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.trigger-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trigger-option {
+  width: 100%;
+}
+
+.trigger-card {
+  padding: 12px;
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  margin-left: 8px;
+  transition: all 0.2s;
+}
+
+.trigger-card:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+}
+
+.trigger-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.trigger-icon {
+  font-size: 16px;
+}
+
+.trigger-name {
+  font-weight: 500;
+  color: #303133;
+}
+
+.trigger-description {
+  font-size: 12px;
+  color: #606266;
+  line-height: 1.4;
+}
+
 .conditions-builder {
   border: 1px solid #e4e7ed;
   border-radius: 4px;
@@ -667,21 +798,25 @@ const saveTransition = () => {
 }
 
 /* 滚动条样式 */
-.editor-content::-webkit-scrollbar {
+.editor-content::-webkit-scrollbar,
+.trigger-selector::-webkit-scrollbar {
   width: 6px;
 }
 
-.editor-content::-webkit-scrollbar-track {
+.editor-content::-webkit-scrollbar-track,
+.trigger-selector::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 3px;
 }
 
-.editor-content::-webkit-scrollbar-thumb {
+.editor-content::-webkit-scrollbar-thumb,
+.trigger-selector::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 3px;
 }
 
-.editor-content::-webkit-scrollbar-thumb:hover {
+.editor-content::-webkit-scrollbar-thumb:hover,
+.trigger-selector::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
 </style>

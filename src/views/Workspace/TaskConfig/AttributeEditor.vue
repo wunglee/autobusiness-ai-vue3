@@ -7,7 +7,7 @@
         <h6 class="section-title">基础配置</h6>
 
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="10">
             <el-form-item label="属性标签" required>
               <el-input
                   v-model="localAttribute.label"
@@ -18,7 +18,7 @@
               <div class="field-hint">用户在界面上看到的名称</div>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="10">
             <el-form-item label="属性键名" required>
               <el-input
                   v-model="localAttribute.key"
@@ -51,7 +51,7 @@
         </el-form-item>
 
         <el-row :gutter="16">
-          <el-col :span="8">
+          <el-col :span="10">
             <el-form-item label="是否必填">
               <el-switch v-model="localAttribute.required" />
             </el-form-item>
@@ -84,7 +84,7 @@
         <h6 class="section-title">数值配置</h6>
 
         <el-row :gutter="16">
-          <el-col :span="8">
+          <el-col :span="10">
             <el-form-item label="最小值">
               <el-input-number
                   v-model="localAttribute.validation.min"
@@ -94,7 +94,7 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="10">
             <el-form-item label="最大值">
               <el-input-number
                   v-model="localAttribute.validation.max"
@@ -104,7 +104,7 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="10">
             <el-form-item label="步长">
               <el-input-number
                   v-model="localAttribute.validation.step"
@@ -199,7 +199,7 @@
         </div>
 
         <el-row v-if="['multiselect', 'checkbox'].includes(localAttribute.type)" :gutter="16">
-          <el-col :span="12">
+          <el-col :span="10">
             <el-form-item label="最多选择">
               <el-input-number
                   v-model="localAttribute.config.maxSelect"
@@ -218,7 +218,7 @@
         <h6 class="section-title">日期配置</h6>
 
         <el-row :gutter="16">
-          <el-col :span="8">
+          <el-col :span="10">
             <el-form-item label="日期格式">
               <el-select v-model="localAttribute.config.format">
                 <el-option label="YYYY-MM-DD" value="YYYY-MM-DD" />
@@ -228,7 +228,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="10">
             <el-form-item label="允许范围">
               <el-switch v-model="localAttribute.config.range" />
             </el-form-item>
@@ -241,7 +241,7 @@
         <h6 class="section-title">文件配置</h6>
 
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="10">
             <el-form-item label="允许类型">
               <el-input
                   v-model="localAttribute.config.accept"
@@ -250,7 +250,7 @@
               <div class="field-hint">用逗号分隔多个类型，如: .jpg,.png,.pdf</div>
             </el-form-item>
           </el-col>
-          <el-col :span="6">
+          <el-col :span="10">
             <el-form-item label="最大大小(MB)">
               <el-input-number
                   v-model="localAttribute.config.maxSize"
@@ -260,7 +260,7 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="6">
+          <el-col :span="10">
             <el-form-item label="最大数量">
               <el-input-number
                   v-model="localAttribute.config.maxCount"
@@ -278,7 +278,7 @@
         <h6 class="section-title">文本配置</h6>
 
         <el-row :gutter="16">
-          <el-col :span="8">
+          <el-col :span="10">
             <el-form-item label="最大长度">
               <el-input-number
                   v-model="localAttribute.validation.maxLength"
@@ -288,7 +288,7 @@
               />
             </el-form-item>
           </el-col>
-          <el-col v-if="localAttribute.type === 'textarea'" :span="8">
+          <el-col v-if="localAttribute.type === 'textarea'" :span="10">
             <el-form-item label="行数">
               <el-input-number
                   v-model="localAttribute.config.rows"
